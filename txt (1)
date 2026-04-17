@@ -1,0 +1,253 @@
+============================================
+  ZOHO ANALYTICS — SOP REPORT SCRIPTS
+  Copy Paste Ready | No Phone Numbers
+  Virat/Sandy/Leads Excluded
+============================================
+
+
+STEP 1: Followups Table Import Karo
+------------------------------------
+Zoho Analytics → Data Sources → Zoho CRM
+Module: Followup → Import
+Sync: Every 1 hour
+
+
+============================================
+STEP 2: FORMULA COLUMNS (8 Formulas)
+============================================
+Followups Table → Add Column → Formula Column
+Naam likho → Formula paste karo → Save
+
+
+--- FORMULA 1 ---
+Name: Created_After_530
+Formula:
+
+if(hour("Created Time") > 17, 'Yes', if(hour("Created Time") = 17 and minute("Created Time") >= 30, 'Yes', 'No'))
+
+
+--- FORMULA 2 ---
+Name: SOP_Date
+Formula:
+
+if("Created_After_530" = 'Yes', adddate(datevalue("Created Time"), 1), datevalue("Created Time"))
+
+
+--- FORMULA 3 ---
+Name: Biz_Days
+Formula:
+
+datediff(today(), "SOP_Date") - floor(datediff(today(), "SOP_Date") / 7)
+
+
+--- FORMULA 4 ---
+Name: Status_Type
+Formula:
+
+if("Followup Status" = 'Ringing/Busy', 'RINGING', if("Followup Status" = 'Call Later', 'CALL_LATER', if("Followup Status" = 'Invalid Number', 'INVALID', if("Followup Status" in ('Prospect', 'Interested'), 'PROSPECT', if("Followup Status" = 'Didn''t Connect', 'DIDNT_CONNECT', if("Followup Status" in ('Lost Lead', 'Duplicate'), 'SKIP', if("Followup Status" = 'Contact In Future', 'SCHEDULED', 'OTHER')))))))
+
+
+--- FORMULA 5 ---
+Name: Required_Calls
+Formula:
+
+if("Status_Type" = 'RINGING', if("Biz_Days" <= 1, 3, 3 + ("Biz_Days" - 1) * 2), if("Status_Type" = 'CALL_LATER', if("Biz_Days" <= 1, 2, 2 + ("Biz_Days" - 1) * 1), if("Status_Type" in ('INVALID', 'PROSPECT', 'DIDNT_CONNECT', 'OTHER'), "Biz_Days", 0)))
+
+
+--- FORMULA 6 ---
+Name: Is_No_Number
+Formula:
+
+if("Phone" is null, 'Yes', 'No')
+
+
+--- FORMULA 7 ---
+Name: Is_Excluded
+Formula:
+
+if("Followup Owner" in ('Virat', 'Sandy', 'Leads'), 'Yes', 'No')
+
+
+--- FORMULA 8 ---
+Name: SOP_Result
+Formula:
+
+if("Is_Excluded" = 'Yes', 'EXCLUDED', if("Is_No_Number" = 'Yes', 'NO NUMBER', if("Status_Type" = 'SKIP', 'SKIP', if("Status_Type" = 'SCHEDULED', 'SCHEDULED', if("Upcoming Scheduled Call Date" >= now(), 'PASS', if("Total Calls" >= "Required_Calls", 'PASS', 'FAIL'))))))
+
+
+============================================
+STEP 3: QUERIES (6 Queries)
+============================================
+New → Query Table → SQL paste karo → Save
+
+
+--- QUERY 1: OVERALL SOP SUMMARY ---
+Name: SOP_Overall
+Paste:
+
+SELECT
+    "SOP_Result" AS "SOP Status",
+    COUNT(*) AS "Count",
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 1) AS "Percentage"
+FROM "Followups"
+WHERE "Is_Excluded" = 'No'
+GROUP BY "SOP_Result"
+ORDER BY CASE "SOP_Result"
+    WHEN 'PASS' THEN 1
+    WHEN 'SCHEDULED' THEN 2
+    WHEN 'FAIL' THEN 3
+    WHEN 'SKIP' THEN 4
+    WHEN 'NO NUMBER' THEN 5
+    ELSE 6 END
+
+
+--- QUERY 2: AGENT WISE SOP ---
+Name: Agent_SOP
+Paste:
+
+SELECT
+    "Followup Owner" AS "Agent",
+    COUNT(*) AS "Total",
+    SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) AS "PASS",
+    SUM(CASE WHEN "SOP_Result" = 'FAIL' THEN 1 ELSE 0 END) AS "FAIL",
+    SUM(CASE WHEN "SOP_Result" = 'FAIL' THEN "Required_Calls" - "Total Calls" ELSE 0 END) AS "Shortfall",
+    ROUND(SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS "SOP %",
+    CASE
+        WHEN SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) >= 80 THEN 'A'
+        WHEN SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) >= 60 THEN 'B'
+        WHEN SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) >= 40 THEN 'C'
+        ELSE 'D'
+    END AS "Grade"
+FROM "Followups"
+WHERE "Is_Excluded" = 'No'
+  AND "SOP_Result" NOT IN ('SKIP', 'NO NUMBER')
+GROUP BY "Followup Owner"
+ORDER BY "SOP %" DESC
+
+
+--- QUERY 3: LEAD SOURCE_2 WISE SOP ---
+Name: Source_SOP
+Paste:
+
+SELECT
+    "Lead Source_2" AS "Lead Source",
+    COUNT(*) AS "Total",
+    SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) AS "PASS",
+    SUM(CASE WHEN "SOP_Result" = 'FAIL' THEN 1 ELSE 0 END) AS "FAIL",
+    SUM(CASE WHEN "SOP_Result" = 'FAIL' THEN "Required_Calls" - "Total Calls" ELSE 0 END) AS "Shortfall",
+    ROUND(SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS "SOP %",
+    CASE
+        WHEN SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) >= 80 THEN 'A'
+        WHEN SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) >= 60 THEN 'B'
+        WHEN SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) >= 40 THEN 'C'
+        ELSE 'D'
+    END AS "Grade"
+FROM "Followups"
+WHERE "Is_Excluded" = 'No'
+  AND "SOP_Result" NOT IN ('SKIP', 'NO NUMBER')
+GROUP BY "Lead Source_2"
+ORDER BY COUNT(*) DESC
+
+
+--- QUERY 4: STATUS WISE SOP ---
+Name: Status_SOP
+Paste:
+
+SELECT
+    "Followup Status" AS "Status",
+    COUNT(*) AS "Total",
+    SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) AS "PASS",
+    SUM(CASE WHEN "SOP_Result" = 'FAIL' THEN 1 ELSE 0 END) AS "FAIL",
+    ROUND(SUM(CASE WHEN "SOP_Result" = 'PASS' THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN "SOP_Result" IN ('PASS', 'FAIL') THEN 1 ELSE 0 END), 0), 1) AS "SOP %",
+    CASE
+        WHEN "Status_Type" = 'RINGING' THEN 'Day1=3, Day2-5=2/day'
+        WHEN "Status_Type" = 'CALL_LATER' THEN 'Day1=2, Day2-5=1/day'
+        WHEN "Status_Type" IN ('INVALID', 'PROSPECT', 'DIDNT_CONNECT') THEN '1 call daily'
+        WHEN "Status_Type" = 'SKIP' THEN 'No SOP'
+        ELSE 'Scheduled'
+    END AS "SOP Rule"
+FROM "Followups"
+WHERE "Is_Excluded" = 'No'
+GROUP BY "Followup Status", "Status_Type"
+ORDER BY COUNT(*) DESC
+
+
+--- QUERY 5: FAIL LIST ---
+Name: SOP_Fail_List
+Paste:
+
+SELECT
+    "Last Name" AS "Name",
+    "Followup Owner" AS "Agent",
+    "Lead Source_2" AS "Source",
+    "Followup Status" AS "Status",
+    "Biz_Days" AS "Biz Days",
+    "Total Calls" AS "Calls Done",
+    "Required_Calls" AS "Required",
+    "Required_Calls" - "Total Calls" AS "Shortfall"
+FROM "Followups"
+WHERE "SOP_Result" = 'FAIL'
+  AND "Is_Excluded" = 'No'
+ORDER BY "Required_Calls" - "Total Calls" DESC
+
+
+--- QUERY 6: NO NUMBER LIST ---
+Name: No_Number_List
+Paste:
+
+SELECT
+    "Last Name" AS "Name",
+    "Followup Owner" AS "Agent",
+    "Followup Status" AS "Status",
+    "Lead Source_2" AS "Source"
+FROM "Followups"
+WHERE "SOP_Result" = 'NO NUMBER'
+  AND "Is_Excluded" = 'No'
+ORDER BY "Followup Owner"
+
+
+============================================
+STEP 4: DASHBOARD BANAO
+============================================
+New → Dashboard → "SOP Monitor"
+
+Add these components:
+
+Row 1: KPI Widgets
+  [Total Leads]  [PASS Count]  [FAIL Count]  [SOP %]
+
+Row 2: Charts
+  [BAR CHART: Agent_SOP → Agent vs SOP %]
+  [PIE CHART: SOP_Overall → SOP Status vs Count]
+
+Row 3: Tables
+  [TABLE: Agent_SOP]
+  [TABLE: Source_SOP]
+
+Row 4: Tables
+  [TABLE: Status_SOP]
+
+Row 5: Tables
+  [TABLE: SOP_Fail_List]
+  [TABLE: No_Number_List]
+
+
+============================================
+SOP RULES REFERENCE
+============================================
+
+Status            | Day1 | Day2 | Day3 | Day4 | Day5
+Ringing/Busy      |  3   |  2   |  2   |  2   |  2
+Call Later        |  2   |  1   |  1   |  1   |  1
+Invalid Number    |  1   |  1   |  1   |  1   |  1
+Prospect          |  1   |  1   |  1   |  1   |  1
+Interested        |  1   |  1   |  1   |  1   |  1
+Didn't Connect    |  1   |  1   |  1   |  1   |  1
+Lost Lead         | SKIP | SKIP | SKIP | SKIP | SKIP
+Scheduled Call    | PASS until scheduled time
+No Number         | SKIP — separate list
+
+Day = 5:30 PM → 5:30 PM
+Sunday = SKIP | Saturday = COUNT
+Excluded: Virat, Sandy, Leads
+No phone numbers in any report
