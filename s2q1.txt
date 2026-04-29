@@ -1,0 +1,50 @@
+SELECT
+		 u."Email" AS Email,
+		 COUNT(DISTINCT c."Account Id") AS Client_Count,
+		 /* Total deposit */ ROUND(SUM(l.total_deposit), 2) AS Total_Deposit,
+		 /* March deposit amount */ ROUND(SUM(l.march_deposit), 2) AS March_Deposits,
+		 /* March inactive deposit amount */ ROUND(SUM(n.march_inactive), 2) AS March_Deposits_Inactive,
+		 /* March inactive deposit count */ SUM(n.march_inactive_count) AS March_Inactive_Deposit_Count,
+		 /* April inactive deposit amount */ ROUND(SUM(n.april_inactive), 2) AS April_Deposits_Inactive,
+		 /* April inactive deposit count */ SUM(n.april_inactive_count) AS April_Inactive_Deposit_Count
+FROM  "Client" c
+LEFT JOIN "Users" u ON c."Client Owner"  = u."Id" 
+LEFT JOIN(	SELECT
+			 "ClientID",
+			 SUM(CASE
+					 WHEN "LedgerType"  = 'DEPOSIT' THEN "Credit"
+					 ELSE 0
+				 END) AS total_deposit,
+			 SUM(CASE
+					 WHEN MONTH("CreatedAt")  = 3
+					 AND	"LedgerType"  = 'DEPOSIT' THEN "Credit"
+					 ELSE 0
+				 END) AS march_deposit
+	FROM  "Ledger" 
+	GROUP BY  "ClientID" 
+) l ON c."Account Id"  = l."ClientID" 
+LEFT JOIN(	SELECT
+			 "CLIENT ID",
+			 SUM(CASE
+					 WHEN MONTH("Date")  = 3
+					 AND	"Status"  = 'Inactive' THEN "Total Deposit"
+					 ELSE 0
+				 END) AS march_inactive,
+			 COUNT(CASE
+					 WHEN MONTH("Date")  = 3
+					 AND	"Status"  = 'Inactive' THEN 1
+				 END) AS march_inactive_count,
+			 SUM(CASE
+					 WHEN MONTH("Date")  = 4
+					 AND	"Status"  = 'Inactive' THEN "Total Deposit"
+					 ELSE 0
+				 END) AS april_inactive,
+			 COUNT(CASE
+					 WHEN MONTH("Date")  = 4
+					 AND	"Status"  = 'Inactive' THEN 1
+				 END) AS april_inactive_count
+	FROM  "Ledger_Gap_New_Approach" 
+	GROUP BY  "CLIENT ID" 
+) n ON c."Account Id"  = n."CLIENT ID"  
+GROUP BY  u."Email" 
+ORDER BY u."Email" 

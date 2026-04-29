@@ -1,0 +1,67 @@
+SELECT
+		 l.FirstTransDate AS FirstTransDate,
+		 l.First_Deposit_Date AS First_Deposit_Date,
+		 
+			CASE
+				 WHEN c."Old Account ID"  IS NOT NULL THEN 'Transferred'
+				 ELSE 'Not Transferred'
+			 END AS Migration_Status,
+		 c."Account Id" AS Account_Id,
+		 DATE_DIFF(day, c."Created Time", TODAY()) AS Age,
+		 l."Deposit_Count" AS Deposit_Count,
+		 l."Deposit_Count" AS depo_count,
+		 l."Withdraw_Count" AS withdraw_count,
+		 l."Trade_Count" AS trade_count,
+		 l."Deposit" AS Deposit,
+		 l."Withdraw" AS Withdraw,
+		 l.No_Of_Transactions AS no_of_transactions,
+		 w.last_Activity AS last_activity,
+		 u."Balance" AS "Current Balance",
+		 ROUND((l.No_Of_Transactions * 5.0) / NULLIF(DATE_DIFF(day, l.FirstTransDate, TODAY()), 0), 2) AS Avg_Txn_Per_5_Days
+FROM  "Client" c
+LEFT JOIN(	SELECT
+			 "ClientID",
+			 MIN(DATE("CreatedAt")) AS FirstTransDate,
+			 MIN(CASE
+					 WHEN "LedgerType"  = 'DEPOSIT' THEN DATE("CreatedAt")
+				 END) AS First_Deposit_Date,
+			 SUM(CASE
+					 WHEN "LedgerType"  = 'BILL' THEN 1
+					 ELSE 0
+				 END) AS "Trade_Count",
+			 SUM(CASE
+					 WHEN "LedgerType"  = 'DEPOSIT' THEN 1
+					 ELSE 0
+				 END) AS "Deposit_Count",
+			 SUM(CASE
+					 WHEN "LedgerType"  = 'WITHDRAW' THEN 1
+					 ELSE 0
+				 END) AS "Withdraw_Count",
+			 SUM(CASE
+					 WHEN "LedgerType"  = 'DEPOSIT' THEN "Credit"
+					 ELSE 0
+				 END) AS "Deposit",
+			 SUM(CASE
+					 WHEN "LedgerType"  = 'WITHDRAW' THEN "Debit"
+					 ELSE 0
+				 END) AS "Withdraw",
+			 COUNT(*) AS No_Of_Transactions
+	FROM  "Ledger" 
+	GROUP BY  "ClientID" 
+) l ON c."Account Id"  = l."ClientID"
+	 OR	c."Old Account ID"  = l."ClientID" 
+LEFT JOIN(	SELECT
+			 "ClientID",
+			 MAX("CreatedAt") AS last_Activity
+	FROM  "Ledger" 
+	GROUP BY  "ClientID" 
+) w ON l."ClientID"  = w."ClientID" 
+LEFT JOIN(	SELECT
+			 "ClientID",
+			 "Balance",
+			 "CreatedAt",
+			 ROW_NUMBER() OVER(PARTITION BY "ClientID"  ORDER BY "CreatedAt" DESC ) AS rn
+	FROM  "Ledger" 
+) u ON l."ClientID"  = u."ClientID"
+	 AND	u.rn  = 1  
+WHERE	 l."Deposit_Count"  IS NOT NULL

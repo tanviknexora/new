@@ -1,0 +1,28 @@
+SELECT
+		 COALESCE(f."Date", c."Date") AS "Date",
+		 COALESCE(f.lead_source_1, c.lead_source_1) AS "Lead Source 1",
+		 COALESCE(f.lead_source_2, c.lead_source_2) AS "Lead Source 2",
+		 f.followups AS Leads,
+		 c.clients AS Clients
+FROM (	SELECT
+			 DATE("Created_time") AS "Date",
+			 "lead_source_1" AS lead_source_1,
+			 "lead_source_2" AS lead_source_2,
+			 COUNT(DISTINCT "Id") AS followups
+	FROM  "Meta tab Murtaza" 
+	GROUP BY DATE("Created_time"),
+		 "lead_source_1",
+		  "lead_source_2" 
+) f
+FULL OUTER JOIN(	SELECT
+			 DATE("Created_time") AS "Date",
+			 "lead_source_1" AS lead_source_1,
+			 "lead_source_2" AS lead_source_2,
+			 COUNT(DISTINCT "Id") AS clients
+	FROM  "Meta Murtaza c" 
+	GROUP BY DATE("Created_time"),
+		 "lead_source_1",
+		  "lead_source_2" 
+) c ON f."Date"  = c."Date"
+	 AND	f.lead_source_1  = c.lead_source_1
+	 AND	f.lead_source_2  = c.lead_source_2  

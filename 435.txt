@@ -1,0 +1,31 @@
+WITH ledger_agg AS (SELECT
+		 "ClientID",
+		 SUM(CASE
+				 WHEN "LedgerType"  = 'DEPOSIT' THEN "Credit"
+				 ELSE 0
+			 END) AS total_deposit_all_time,
+		 SUM(CASE
+				 WHEN "LedgerType"  = 'DEPOSIT'
+				 AND	month("CreatedAt")  = 3
+				 AND	year("CreatedAt")  = year(current_date()) THEN "Credit"
+				 ELSE 0
+			 END) AS total_deposit_march
+FROM  "Ledger" 
+GROUP BY  "ClientID") ,
+recent_tx AS (SELECT DISTINCT "ClientID"
+FROM  "Ledger" 
+WHERE	 datediff(current_date(), "CreatedAt")  <= 5)
+SELECT
+		 u."Email" AS CRE,
+		 COUNT(DISTINCT CASE
+				 WHEN r."ClientID"  IS NULL THEN c."Account Id"
+			 END) AS inactive_client_count,
+		 SUM(COALESCE(l.total_deposit_all_time, 0)) AS total_deposit_all_time,
+		 SUM(COALESCE(l.total_deposit_march, 0)) AS total_deposit_march
+FROM  "Client" c
+LEFT JOIN "Users" u ON c."Client Owner"  = u."Id" 
+LEFT JOIN ledger_agg l ON c."Account Id"  = l."ClientID" 
+LEFT JOIN recent_tx r ON c."Account Id"  = r."ClientID"  
+GROUP BY  u."Email" 
+ORDER BY u."Email" 
+ 

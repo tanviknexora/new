@@ -1,0 +1,31 @@
+WITH Previous_client AS (SELECT DISTINCT l1."ClientID" AS ClientID
+FROM  "Ledger" l1 
+WHERE	 DATE(l1."CreatedAt")  < TODAY() - 5) ,
+latest_client AS (SELECT DISTINCT "ClientID"
+FROM  "Ledger" 
+WHERE	 DATE("CreatedAt")  >= TODAY() - 5) ,
+result AS (SELECT
+		 a."ClientID" AS clientid,
+		 u."Email" AS clientowner
+FROM  Previous_client a
+LEFT JOIN latest_client b ON a."ClientID"  = b."ClientID" 
+LEFT JOIN "Client" c ON a."ClientID"  = c."Account Id" 
+LEFT JOIN "Users" u ON c."Client Owner"  = u."Id"  
+WHERE	 b."ClientID"  IS NULL)
+SELECT
+		 w.clientid as ClientID,
+		 w.clientowner as CRE,
+		 SUM(CASE
+				 WHEN l."LedgerType"  = 'DEPOSIT' THEN l."Credit"
+				 ELSE 0
+			 END) AS "Deposit",
+		 SUM(CASE
+				 WHEN l."LedgerType"  = 'WITHDRAW' THEN l."Debit"
+				 ELSE 0
+			 END) AS "Withdrawal",
+		 max(l."CreatedAt") as latest_transaction
+FROM  result w
+LEFT JOIN "Ledger" l ON w.clientid  = l."ClientID"  
+GROUP BY w.clientid,
+	  w.clientowner 
+ORDER BY w.clientid 

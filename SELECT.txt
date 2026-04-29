@@ -1,0 +1,58 @@
+SELECT
+		 DATE(c."Created Time") AS created_date,
+		 c."Account Id" AS Account_Id,
+		 c."Lead Source_1" AS Lead_Source_1,
+		 ls."Lead Source 2" AS Lead_Source_2,
+		 u."Email" AS Followup_Owner,
+		 l.dep_cnt AS depo_count,
+		 l.wdr_cnt AS withdraw_count,
+		 l.trd_cnt AS trade_count,
+		 l.dep_amt AS Deposit,
+		 l.wdr_amt AS Withdraw,
+		 
+			CASE
+				 WHEN l.trd_cnt  > 0 THEN 'Traded'
+				 ELSE 'Not Traded'
+			 END AS anomaly
+FROM  "Client" c
+LEFT JOIN(	SELECT
+			 l."ClientID" AS cid,
+			 SUM(CASE
+					 WHEN l."LedgerType"  = 'BILL' THEN 1
+					 ELSE 0
+				 END) AS trd_cnt,
+			 SUM(CASE
+					 WHEN l."LedgerType"  = 'DEPOSIT' THEN 1
+					 ELSE 0
+				 END) AS dep_cnt,
+			 SUM(CASE
+					 WHEN l."LedgerType"  = 'WITHDRAW'
+					 AND	l."ClientID"  NOT IN
+						(
+ 						SELECT l2."ClientID"
+						FROM  "Ledger" l2 
+						WHERE	 l2."LedgerType"  = 'WITHDRAW CANCELLED'
+						) THEN 1
+					 ELSE 0
+				 END) AS wdr_cnt,
+			 SUM(CASE
+					 WHEN l."LedgerType"  = 'DEPOSIT' THEN l."Credit"
+					 ELSE 0
+				 END) AS dep_amt,
+			 SUM(CASE
+					 WHEN l."LedgerType"  = 'WITHDRAW'
+					 AND	l."ClientID"  NOT IN
+						(
+ 						SELECT l2."ClientID"
+						FROM  "Ledger" l2 
+						WHERE	 l2."LedgerType"  = 'WITHDRAW CANCELLED'
+						) THEN l."Debit"
+					 ELSE 0
+				 END) AS wdr_amt
+	FROM  "Ledger" l 
+	GROUP BY  l."ClientID" 
+) l ON c."Account Id"  = l.cid 
+LEFT JOIN "Users" u ON c."Followup Owner"  = u."Id" 
+LEFT JOIN "Lead Sources" ls ON c."Lead Source_2"  = ls."Id" 
+LEFT JOIN "Team_tradex" t1 ON u."Email"  = t1."Email"  
+WHERE	 t1."Email"  is not null

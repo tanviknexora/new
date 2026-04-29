@@ -1,0 +1,13 @@
+SELECT
+		 l."ClientID" AS Ids,
+		 u."Email" as Client_Owner
+FROM  "Ledger" l
+LEFT JOIN "Client" c ON l."ClientID"  = c."Account Id" 
+LEFT JOIN "Users" u ON c."Client Owner"  = u."Id"  
+GROUP BY l."ClientID",
+	  u."Email" 
+HAVING SUM(CASE
+		 WHEN l."LedgerType"  = 'BILL'
+		 AND	DATE(l."CreatedAt")  BETWEEN DATE('2026-02-01')  AND  DATE('2026-04-27') THEN 1
+		 ELSE 0
+	 END)  = 0  
