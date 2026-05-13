@@ -1,0 +1,398 @@
+Flushing Data
+-----------------------
+Use the --start and --end flags with today's date, combined with --flush... but --flush deletes everything, which you don't want
+correct approach is to delete today's records manually
+python manage.py shell
+Then in the shell:
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.models import CallRecord
+
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+
+# Start of today (midnight IST) in milliseconds
+start_of_day_ms = int(datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ).timestamp() * 1000)
+
+# Delete only today's records
+deleted, _ = CallRecord.objects.filter(start_time_ms__gte=start_of_day_ms).delete()
+print(f"Deleted {deleted} records for today.")
+exit()
+
+Step 2 — Resync today from the API
+python manage.py sync_calls --start 2026-05-13 --end 2026-05-13
+
+Why not use --flush?
+--flush wipes all records in the database (CallRecord.objects.all().delete()), which would destroy your historical data. The two-step approach above is surgical — it only removes today's rows.
+Alternative: Force-update today without deleting
+If you'd rather not delete at all and just overwrite today's existing records, you can run the one-shot sync which uses replace_today=True (it calls update_or_create instead of get_or_create):
+python manage.py sync_calls --hours 24
+
+My recommendation: use --hours 24 first. It's the safest — no deletes needed, and it forces a full refresh of today's data via update_or_create.
+
+---------------------------
+Fetched 54,000 and Saved 1,900
+---------------------------
+The backfill uses get_or_create (skips existing records). When the daemon was already running and re-inserted some records before you ran the backfill, those 52,100 were already back in — but the daemon only looks back a few minutes at a time, so it only caught recent ones, not the full day. The result is a partial, inconsistent dataset.
+
+The fix
+Step 1 — Stop the daemon first
+Press Ctrl+C to kill it.
+Step 2 — Delete today and resync properly
+python manage.py shell
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.models import CallRecord
+
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+start_of_day_ms = int(datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ).timestamp() * 1000)
+
+deleted, _ = CallRecord.objects.filter(start_time_ms__gte=start_of_day_ms).delete()
+print(f"Deleted {deleted} records for today.")
+exit()
+
+Step 3 — Backfill with replace_today=True (this is the key fix)
+The backfill command hardcodes replace_today=False, which is the bug. Run the one-shot sync instead, which uses replace_today=True
+python manage.py sync_calls --hours 24
+
+
+This uses update_or_create — so even if a record already exists, it overwrites it with fresh data. No more skipping
+
+Step 4 — Restart the daemon
+
+
+python manage.py sync_calls --daemon --interval 4
+
+Longer term fix — in sync_calls.py, change _backfill to pass replace_today=True when the date range includes today:
+
+# In _backfill(), change this line:
+new, skip = upsert_records(rows, replace_today=False)
+
+# To this:
+is_today = current.date() == datetime.now(tz=LOCAL_TZ).date()
+new, skip = upsert_records(rows, replace_today=is_today)
+
+This way --start today --end today will always upsert instead of skip.
+
+-----------------------------------------------------------------
+Check whether the new data is correct now?
+-------------------------------------------------------------------
+
+python manage.py shell
+
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.models import CallRecord
+
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+start_of_day_ms = int(datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ).timestamp() * 1000)
+
+today_count = CallRecord.objects.filter(start_time_ms__gte=start_of_day_ms).count()
+print(f"Today's records in DB: {today_count}")
+exit()
+
+If the count is still too low, the issue is upstream in fetch_all_portals_for_range — the API itself may not be returning all records. In that case share what stringeex_service.py does and we can dig into the API pagination.
+---------------------------------------------
+Verify the actual record count in the DB for today
+----------------------------------------------
+
+python manage.py shell -c "
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.models import CallRecord
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+start_ms = int(datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ).timestamp() * 1000)
+count = CallRecord.objects.filter(start_time_ms__gte=start_ms).count()
+print(f'Today records in DB: {count}')
+"
+
+---------------------------------------------
+Check what the API is actually returning
+----------------------------------------------
+
+http://localhost:8000/api/stats/?date=2026-05-13
+
+
+--------------------------------------------------
+ Pagination Bug
+----------------------------------------------------
+
+if len(all_rows) >= total or not rows:
+    break
+The totalCount from the API represents the total for the entire date range, but you're fetching a full day in one request with page_size=1000. If there are 8,000+ calls today, it's paginating — but totalCount may be capped or misreported by the StringeeX API, causing it to stop early.
+
+
+--------------------------------------------------
+Result of Each Page
+----------------------------------------------------
+
+python manage.py shell -c "
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.stringeex_service import get_auth_token_for_portal
+import requests
+
+portal = 'bluewave2'  # change to your portal name
+token, base_url = get_auth_token_for_portal(portal)
+
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+start_ms = int(datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ).timestamp() * 1000)
+end_ms   = int(datetime(now.year, now.month, now.day, 23, 59, 59, tzinfo=LOCAL_TZ).timestamp() * 1000)
+
+url     = f'{base_url}/v1/call/history'
+headers = {'X-STRINGEE-AUTH': token}
+params  = {'limit': 1000, 'page': 1, 'start_time': start_ms, 'end_time': end_ms}
+
+resp = requests.get(url, headers=headers, params=params, timeout=20)
+data = resp.json()
+total = data['data']['totalCount']
+rows  = data['data']['rows']
+print(f'totalCount from API: {total}')
+print(f'Records on page 1:   {len(rows)}')
+"
+if returning something like 1000 or 3000 instead of 8000+ — meaning the API itself caps totalCount and the pagination loop exits too early.
+
+fix is to change the pagination logic in stringeex_service.py to stop only when a page returns fewer rows than requested (i.e. you've hit the last page), rather than trusting totalCount
+
+# Replace this:
+if len(all_rows) >= total or not rows:
+    break
+
+# With this:
+if len(rows) < page_size:
+    break  # last page — fewer rows than requested means no more pages
+--------------------------------------------------------------------
+totalCount is 270,394 — that's the all-time total, not today's. The API is ignoring start_time/end_time for the count. So the pagination loop thinks it needs 270k records and keeps going forever, but you're only getting today's 8k rows spread across ~8 pages before something cuts it off.
+The fix is exactly what I suggested — stop paginating when a page returns fewer rows than requested, not based on totalCount. Let's apply it now:Find the exact lines to patchFind the exact lines to patchNo worries — you have enough info to fix it directly. Open calls/stringeex_service.py and find this block inside fetch_calls_for_range:
+
+
+all_rows.extend(rows)
+        logger.info("Page %d — fetched %d / %d records", page, len(all_rows), total)
+
+        if len(all_rows) >= total or not rows:
+            break
+
+        page += 1
+
+
+Replace it with:
+
+all_rows.extend(rows)
+        logger.info("Page %d — fetched %d rows (API totalCount: %d)", page, len(all_rows), total)
+
+        if len(rows) < page_size:
+            break  # last page — API returned fewer than requested
+
+        page += 1
+
+
+-------------------------------------------------------------------
+Full Flush and Resync
+------------------------------------------------------------------
+
+python manage.py shell -c "
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.models import CallRecord
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+start_ms = int(datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ).timestamp() * 1000)
+deleted, _ = CallRecord.objects.filter(start_time_ms__gte=start_ms).delete()
+print(f'Deleted {deleted} today records')
+"
+
+python manage.py sync_calls --hours 16
+
+Then restart the daemon:
+
+python manage.py sync_calls --daemon --interval 4
+
+Result
+--------
+
+That's fixed. 30,582 records synced vs the 2,999 you had before. The pagination bug was the root cause — totalCount returning the all-time count (270k) was causing the loop to over-run and time out, so you were only getting partial pages.
+Summary of what was wrong and what was fixed:
+
+Pagination bug in stringeex_service.py — the loop used len(all_rows) >= totalCount to decide when to stop, but the API returns the all-time record count (270,394) regardless of your date filter. Changed to len(rows) < page_size so it stops correctly when a page comes back with fewer than 1,000 rows.
+Backfill was using get_or_create — so re-running it after a partial sync skipped everything already inserted. Fixed by using --hours 16 with replace_today=True instead.
+
+The daemon is now running healthy — 1,883 new records in the first 4-minute poll, which is expected as calls come in through the day. You're good.
+
+Next Problem
+-----------------
+but the page is only showing 1930
+
+The dashboard is filtering correctly but showing less than DB has. The likely culprit is the _day_ms_range function — look at this in views.py:
+
+def _day_ms_range(date_str: str) -> tuple[int, int]:
+    try:
+        td = datetime.strptime(date_str, '%Y-%m-%d')  # ← NO TIMEZONE! naive datetime
+    except (ValueError, TypeError):
+        td = datetime.now(tz=LOCAL_TZ)
+
+
+When date_str is provided (which the dashboard does), it parses it as a naive datetime with no timezone, then computes midnight as if it's UTC — but your data is in IST (UTC+5:30). That means the day boundary starts 5.5 hours late, cutting off all calls from midnight to 5:30 AM IST.
+
+
+Quick verification — run this:
+
+
+python manage.py shell -c "
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.models import CallRecord
+
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+
+# What _day_ms_range actually computes (buggy — no tz on strptime)
+td_naive = datetime.strptime('2026-05-13', '%Y-%m-%d')
+bad_start = int(td_naive.replace(hour=0).timestamp() * 1000)
+bad_end   = int(td_naive.replace(hour=23, minute=59, second=59).timestamp() * 1000)
+
+# Correct
+td_aware  = datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ)
+good_start = int(td_aware.timestamp() * 1000)
+good_end   = int(datetime(now.year, now.month, now.day, 23, 59, 59, tzinfo=LOCAL_TZ).timestamp() * 1000)
+
+print(f'Bad  start ms:  {bad_start}  → {datetime.fromtimestamp(bad_start/1000, tz=LOCAL_TZ)}')
+print(f'Good start ms:  {good_start} → {datetime.fromtimestamp(good_start/1000, tz=LOCAL_TZ)}')
+print(f'Gap in hours:   {(bad_start - good_start) / 3600000:.1f}h')
+
+from calls.models import CallRecord
+print(f'Records in bad  range: {CallRecord.objects.filter(start_time_ms__gte=bad_start,  start_time_ms__lte=bad_end).count()}')
+print(f'Records in good range: {CallRecord.objects.filter(start_time_ms__gte=good_start, start_time_ms__lte=good_end).count()}')
+"
+
+The fix — in views.py, change _day_ms_range to attach the timezone when parsing:
+
+
+def _day_ms_range(date_str: str) -> tuple[int, int]:
+    try:
+        td = datetime.strptime(date_str, '%Y-%m-%d')
+    except (ValueError, TypeError):
+        td = datetime.now(tz=LOCAL_TZ)
+
+    # Fix: attach LOCAL_TZ so midnight means IST midnight, not UTC midnight
+    day_start = datetime(td.year, td.month, td.day,  0,  0,  0, tzinfo=LOCAL_TZ)
+    day_end   = datetime(td.year, td.month, td.day, 23, 59, 59, tzinfo=LOCAL_TZ)
+    return int(day_start.timestamp() * 1000), int(day_end.timestamp() * 1000)
+
+
+
+Both ranges are identical and both return 1,930. So the timezone is NOT the bug — the DB genuinely only has 1,930 records for today's date range, even though the total sync saved 30,582.
+The missing records are likely from yesterday being pulled in by --hours 16. Let's check:
+
+
+Checking where the total records have went
+python manage.py shell -c "
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.models import CallRecord
+
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+
+# Check last 3 days
+for offset in range(3):
+    from datetime import timedelta
+    day = now - timedelta(days=offset)
+    s = int(datetime(day.year, day.month, day.day, 0, 0, 0, tzinfo=LOCAL_TZ).timestamp() * 1000)
+    e = int(datetime(day.year, day.month, day.day, 23, 59, 59, tzinfo=LOCAL_TZ).timestamp() * 1000)
+    count = CallRecord.objects.filter(start_time_ms__gte=s, start_time_ms__lte=e).count()
+    print(f'{day.strftime(\"%Y-%m-%d\")}: {count} records')
+
+# Also check total
+total = CallRecord.objects.count()
+print(f'Total in DB: {total}')
+
+# Check null start times
+null_count = CallRecord.objects.filter(start_time_ms__isnull=True).count()
+print(f'Records with null start_time_ms: {null_count}')
+"
+Updated _Backhill function
+def _backfill(self, options):
+    if not options.get('start') or not options.get('end'):
+        self.stderr.write(self.style.ERROR(
+            'Provide both --start YYYY-MM-DD and --end YYYY-MM-DD.'))
+        return
+    try:
+        start_dt = datetime.strptime(options['start'], '%Y-%m-%d').replace(tzinfo=LOCAL_TZ)
+        end_dt   = datetime.strptime(options['end'],   '%Y-%m-%d').replace(
+            hour=23, minute=59, second=59, tzinfo=LOCAL_TZ)
+    except ValueError as e:
+        self.stderr.write(self.style.ERROR(f'Date parse error: {e}'))
+        return
+
+    self.stdout.write(self.style.NOTICE(
+        f'Backfilling {options["start"]} → {options["end"]} from all portals…'))
+
+    current   = start_dt
+    total_new = total_skip = 0
+
+    while current <= end_dt:
+        day_end = current.replace(hour=23, minute=59, second=59)
+        if day_end > end_dt:
+            day_end = end_dt
+
+        day_label = current.strftime('%Y-%m-%d')
+        is_today  = current.date() == datetime.now(tz=LOCAL_TZ).date()
+
+        self.stdout.write(f'  {day_label}{"  [today — will upsert]" if is_today else ""}…', ending='')
+        self.stdout.flush()
+
+        try:
+            rows = fetch_all_portals_for_range(current, day_end)
+            new, skip = upsert_records(rows, replace_today=is_today)
+            total_new  += new
+            total_skip += skip
+            self.stdout.write(
+                f' {len(rows)} fetched → {new} new, {skip} skipped')
+        except StringeeXError as e:
+            self.stdout.write('')
+            self.stderr.write(self.style.ERROR(f'  Failed {day_label}: {e}'))
+
+        current = (current + timedelta(days=1)).replace(hour=0, minute=0, second=0)
+
+    self.stdout.write(self.style.SUCCESS(
+        f'Backfill complete — {total_new} total new, {total_skip} total skipped.'))
+
+
+Checking the code
+
+grep -A3 "all_rows.extend" /mnt/c/Users/Administrator/Workspace/Automation\ Projects/stringeex_django/calls/stringeex_service.py
+
+
+API Returning 5000 Records. -Lets Split it
+
+python manage.py shell -c "
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from calls.stringeex_service import get_auth_token_for_portal
+import requests
+
+portal = 'bluewave2'
+token, base_url = get_auth_token_for_portal(portal)
+
+LOCAL_TZ = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=LOCAL_TZ)
+start_ms = int(datetime(now.year, now.month, now.day, tzinfo=LOCAL_TZ).timestamp() * 1000)
+end_ms   = int(datetime(now.year, now.month, now.day, 23, 59, 59, tzinfo=LOCAL_TZ).timestamp() * 1000)
+
+url     = f'{base_url}/v1/call/history'
+headers = {'X-STRINGEE-AUTH': token}
+
+# Check pages 5 and 6 to confirm where it stops
+for page in [4, 5, 6]:
+    params = {'limit': 1000, 'page': page, 'start_time': start_ms, 'end_time': end_ms}
+    resp = requests.get(url, headers=headers, params=params, timeout=20)
+    data = resp.json()
+    rows = data['data']['rows']
+    print(f'Page {page}: {len(rows)} rows')
+"
+
