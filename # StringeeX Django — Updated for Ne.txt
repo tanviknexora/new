@@ -1,0 +1,80 @@
+# StringeeX Django — Updated for New API CSV Format
+
+## What changed (v2)
+
+### 1. New CSV data format (`call_report_*.csv`)
+The Stringee API now exports a different CSV structure. Key changes handled:
+
+| Old field | New field | Change |
+|---|---|---|
+| `direction` (string) | `direction` (int `0`/`1`) | `0`→outbound, `1`→inbound |
+| `Queue duration` (HH:MM:SS) | _derived_ | `queue = duration − talk_duration` |
+| `Answer duration` (HH:MM:SS) | `answer_duration` (float secs, nullable) | Stored as FloatField |
+| `Start time` (datetime str) | `start_time` (unix ms int) | Same as existing `start_time_ms` |
+| `Account` (email) | `account_name` (email) | Same field, now used for team lookup |
+
+### 2. CAN_NOT_MAKE_CALL filter
+Mirrors the notebook: records with `end_call_reason == 'CAN_NOT_MAKE_CALL'` are
+skipped at ingest time (both CSV and API sync).
+
+### 3. Team enrichment (`calls/team_lookup.py`)
+`account_name` (e.g. `anushka@bluewave.com`) is looked up against **Sheet2** of
+`data/Team_tradex.xlsx`. The Stringee-dialer rows are loaded and the following
+fields are added to every `CallRecord`:
+
+- `full_name`, `employee_code`, `pool`, `tl`, `vertical`
+
+### 4. Duration fields
+All three duration HH:MM:SS strings are now computed as model properties:
+- `talk_duration_display` — agent talk time
+- `queue_duration_display` — time before answer (`duration − talk_duration`)
+- `total_duration_display` — full call duration
+
+### 5. New API endpoints
+| Endpoint | Description |
+|---|---|
+| `GET /api/agent-summary/` | Per-agent report (total, connected, talk time, queue time) |
+| `GET /api/calls/?connected=1` | Filter to answered calls only |
+| `GET /api/calls/?tl=Rehan` | Filter by TL name |
+| `GET /api/stats/?agent=email` | KPIs for a single agent |
+
+---
+
+## Usage
+
+### Import a downloaded CSV
+```bash
+# Place Team_tradex.xlsx in data/
+python manage.py sync_calls --csv /path/to/call_report_20260508_20260508.csv
+```
+
+### Live API sync (unchanged)
+```bash
+python manage.py sync_calls           # last 2 hours
+python manage.py sync_calls --hours 6
+python manage.py sync_calls --daemon --interval 5
+python manage.py sync_calls --start 2026-05-01 --end 2026-05-08
+```
+
+### Run migrations (first time after update)
+```bash
+python manage.py migrate
+```
+
+---
+
+## File structure
+```
+stringeex_django/
+├── calls/
+│   ├── models.py              ← Updated: team fields, FloatField, display properties
+│   ├── team_lookup.py         ← NEW: loads Team_tradex.xlsx, enriches records
+│   ├── views.py               ← Updated: agent-summary API, new filters
+│   ├── urls.py                ← Updated: /api/agent-summary/ added
+│   ├── stringeex_service.py   ← Unchanged
+│   └── management/commands/
+│       └── sync_calls.py      ← Updated: --csv flag, direction mapping, team enrichment
+├── data/
+│   └── Team_tradex.xlsx       ← Place your team list here
+└── README.md
+```
