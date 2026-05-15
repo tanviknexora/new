@@ -1,0 +1,350 @@
+SELECT
+		 f."Created Time" AS Created_Time,
+		 f."Full Name" AS Customer_Name,
+		 f."Phone" AS Phone,
+		 sop.Followup_Owner AS Followup_Owner,
+		 sop.Status_Type AS Status_Type,
+		 sop.Is_Number AS Is_Number,
+		 sop.SOP_Time AS SOP_Created_Time,
+		 sop.Adjusted_Days AS Working_Days_Elapsed,
+		 sop.Required_Calls AS Required_Calls,
+		 IFNULL(calls.Total_Calls, 0) AS Actual_Calls,
+		 
+			/* ── Call Count SOP Status ── */
+			CASE
+				 WHEN sop.Status_Type  IN ( 'EXCLUDED'  , 'INVALID'  , 'SKIP'  ) THEN 'N/A'
+				 WHEN sop.Required_Calls  = 0 THEN 'N/A'
+				 WHEN IFNULL(calls.Total_Calls, 0)  >= sop.Required_Calls THEN 'CALL SOP FOLLOWED'
+				 ELSE CONCAT('CALL SOP NOT FOLLOWED - ', CAST(sop.Required_Calls -IFNULL(calls.Total_Calls, 0) AS CHAR), ' call(s) short')
+			 END AS Call_SOP_Status,
+		 
+			/* ── First Call within 15 min SOP Check ── */
+			CASE
+				 WHEN sop.Status_Type  = 'EXCLUDED' THEN 'Lead Not Yet Assigned'
+				 WHEN assign.First_Assignment_Time  IS NULL THEN 'Lead Not Yet Assigned'
+				 WHEN calls.First_Call_Time  IS NULL THEN 'SOP FAILED - No Call Made'
+				 WHEN TIMESTAMPDIFF(minute, TIMESTAMP(assign.First_Assignment_Time), TIMESTAMP(calls.First_Call_Time))  > 15 THEN CONCAT('SOP FAILED - ', CAST(TIMESTAMPDIFF(minute, TIMESTAMP(assign.First_Assignment_Time), TIMESTAMP(calls.First_Call_Time)) AS CHAR), ' mins delay')
+				 ELSE CONCAT('SOP PASSED - ', CAST(TIMESTAMPDIFF(minute, TIMESTAMP(assign.First_Assignment_Time), TIMESTAMP(calls.First_Call_Time)) AS CHAR), ' mins')
+			 END AS First_Call_SOP_Status,
+		 
+			/* ── Scheduled / Pending Call Status ── */
+			CASE
+				 /* Future scheduled call in CRM */ WHEN sched.Scheduled_Call_Time  IS NOT NULL
+				 AND	TIMESTAMP(sched.Scheduled_Call_Time)  > TIMESTAMP(NOW()) THEN CONCAT('CALL SCHEDULED - ', CAST(sched.Scheduled_Call_Time AS CHAR), ' by ', IFNULL(sched.Scheduled_By, 'Unknown')) /* Next call date set on a completed call, not yet due */
+				 WHEN sched.Next_Call_Date  IS NOT NULL
+				 AND	TIMESTAMP(sched.Next_Call_Date)  > TIMESTAMP(NOW()) THEN CONCAT('NEXT CALL PENDING - ', CAST(sched.Next_Call_Date AS CHAR), ' (set by ', IFNULL(sched.Next_Call_Set_By, 'Unknown'), ')') /* Scheduled call time passed, no call made after it */
+				 WHEN sched.Scheduled_Call_Time  IS NOT NULL
+				 AND	TIMESTAMP(sched.Scheduled_Call_Time)  <= TIMESTAMP(NOW())
+				 AND	(calls.Last_Call_Time  IS NULL
+				 OR	TIMESTAMP(calls.Last_Call_Time)  < TIMESTAMP(sched.Scheduled_Call_Time)) THEN CONCAT('OVERDUE SCHEDULED CALL - was due ', CAST(sched.Scheduled_Call_Time AS CHAR), ' by ', IFNULL(sched.Scheduled_By, 'Unknown')) /* Next call date passed, no call made after it */
+				 WHEN sched.Next_Call_Date  IS NOT NULL
+				 AND	TIMESTAMP(sched.Next_Call_Date)  <= TIMESTAMP(NOW())
+				 AND	(calls.Last_Call_Time  IS NULL
+				 OR	TIMESTAMP(calls.Last_Call_Time)  < TIMESTAMP(sched.Next_Call_Date)) THEN CONCAT('OVERDUE NEXT CALL - was due ', CAST(sched.Next_Call_Date AS CHAR), ' (set by ', IFNULL(sched.Next_Call_Set_By, 'Unknown'), ')')
+				 WHEN calls.Total_Calls  IS NULL THEN 'NO CALLS MADE YET' /* Last call time shown so analyst knows when contact last happened */
+				 ELSE CONCAT('NO PENDING SCHEDULED CALL - last called ', CAST(calls.Last_Call_Time AS CHAR))
+			 END AS Scheduled_Call_Status,
+		 temporal.Status_History AS Status_History,
+		 temp2.Owner_History AS Owner_History,
+		 calls.Call_Distribution AS Call_Distribution
+FROM  "Followup" f /* ── SOP / Required Calls ── */
+LEFT JOIN(	SELECT
+			 f1.Id AS Id,
+			 u."Email" AS Followup_Owner,
+			 
+				CASE
+					 WHEN f1."Phone"  IS NULL THEN 'Yes'
+					 ELSE 'No'
+				 END AS Is_Number,
+			 
+				CASE
+					 WHEN u."Email"  IN ( 'admin@rgis.live'  , 'sandy.s@nexora.live'  , 'shiva@nexora.live'  , 'prithvi@nexora.live'  , 'octfis@rgis.live'  , 'aviraj@nexora.live'  , 'jeevan@nexora.live'  , 'rahul.r@nexora.live'  , 'robin@nexora.live'  ) THEN 'EXCLUDED'
+					 WHEN f1."Followup Status"  = 'Ringing/Busy' THEN 'RINGING'
+					 WHEN f1."Followup Status"  = 'Call Later' THEN 'CALL_LATER'
+					 WHEN f1."Followup Status"  = 'Invalid Number' THEN 'INVALID'
+					 WHEN f1."Followup Status"  IN ( 'Prospect'  , 'Interested'  ) THEN 'PROSPECT'
+					 WHEN f1."Followup Status"  = 'Didn''t Connect' THEN 'DIDNT_CONNECT'
+					 WHEN f1."Followup Status"  IN ( 'Lost Lead'  , 'Duplicate'  ) THEN 'SKIP'
+					 WHEN f1."Followup Status"  = 'Contact In Future' THEN 'SCHEDULED'
+					 ELSE 'OTHER'
+				 END AS Status_Type,
+			 
+				CASE
+					 WHEN TIME(f1."Created Time")  > '17:30:00' THEN DATEADD(minute, 570, DATEADD(day, 1, DATE(f1."Created Time")))
+					 ELSE f1."Created Time"
+				 END AS SOP_Time,
+			 COUNT(c.calendar_date) AS Adjusted_Days,
+			 
+				CASE
+					 WHEN f1."Phone"  IS NULL THEN 0
+					 WHEN u."Email"  IN ( 'admin@rgis.live'  , 'sandy.s@nexora.live'  , 'shiva@nexora.live'  , 'prithvi@nexora.live'  , 'octfis@rgis.live'  , 'aviraj@nexora.live'  , 'jeevan@nexora.live'  , 'rahul.r@nexora.live'  , 'robin@nexora.live'  ) THEN 0
+					 WHEN f1."Followup Status"  = 'Invalid Number' THEN 0
+					 WHEN f1."Followup Status"  IN ( 'Lost Lead'  , 'Duplicate'  ) THEN 0
+					 WHEN f1."Followup Status"  = 'Ringing/Busy' THEN 
+						CASE
+							 WHEN COUNT(c.calendar_date)  <= 1 THEN 3
+							 ELSE 3 + FLOOR((COUNT(c.calendar_date) -1) / 2)
+						 END
+					 WHEN f1."Followup Status"  = 'Call Later' THEN 
+						CASE
+							 WHEN COUNT(c.calendar_date)  <= 1 THEN 1
+							 ELSE 1 + FLOOR((COUNT(c.calendar_date) -1) / 2)
+						 END
+					 WHEN f1."Followup Status"  = 'Didn''t Connect' THEN 
+						CASE
+							 WHEN COUNT(c.calendar_date)  <= 1 THEN 2
+							 ELSE 3 + FLOOR((COUNT(c.calendar_date) -1) / 2)
+						 END
+					 WHEN f1."Followup Status"  IN ( 'Prospect'  , 'Interested'  ) THEN COUNT(c.calendar_date)
+					 ELSE COUNT(c.calendar_date)
+				 END AS Required_Calls
+	FROM  "Followup" f1
+LEFT JOIN "Users" u ON f1."Followup Owner"  = u."Id" 
+LEFT JOIN "calendar_table" c ON c.calendar_date  > DATE(CASE
+				 WHEN TIME(f1."Created Time")  > '17:30:00' THEN DATEADD(day, 1, DATE(f1."Created Time"))
+				 ELSE DATE(f1."Created Time")
+			 END)
+		 AND	c.calendar_date  <= TODAY()
+		 AND	DAYOFWEEK(c.calendar_date)  <> 1  
+	GROUP BY f1.Id,
+		 f1."Followup Status",
+		 f1."Created Time",
+		 f1."Phone",
+		  u."Email" 
+) AS  sop ON sop.Id  = f."Id" /* ── Status History ── */
+ 
+LEFT JOIN(	SELECT
+			 w."Text Lead ID" AS Text_Lead_ID,
+			 GROUP_CONCAT(CONCAT(w."Followup Status", ' (', CAST(w."Modified Time" AS CHAR), ')') ORDER BY w."Modified Time" SEPARATOR ' -> ') AS Status_History
+	FROM  "Followup Status History" w 
+	GROUP BY  w."Text Lead ID" 
+) AS  temporal ON temporal.Text_Lead_ID  = f."Id" /* ── Owner History ── */
+ 
+LEFT JOIN(	SELECT
+			 o."Followup" AS Followup,
+			 GROUP_CONCAT(CONCAT(u."Email", ' (', CAST(o."Modified Time" AS CHAR), ')') ORDER BY o."Modified Time" SEPARATOR ' -> ') AS Owner_History
+	FROM  "Owner History" o
+LEFT JOIN "Users" u ON u."Id"  = o."Followup Owner"  
+	GROUP BY  o."Followup" 
+) AS  temp2 ON temp2.Followup  = f."Id" /* ── Call Distribution + counts ── */
+ 
+LEFT JOIN(	SELECT
+			 cl."LEADID" AS Lead_ID,
+			 MIN(cl."Call Start Time") AS First_Call_Time,
+			 MAX(cl."Call Start Time") AS Last_Call_Time,
+			 COUNT(cl.Id) AS Total_Calls,
+			 GROUP_CONCAT(CONCAT(IFNULL(u."Email", 'Unknown'), ' (', CAST(cl."Call Start Time" AS CHAR), ')') ORDER BY cl."Call Start Time" SEPARATOR ' -> ') AS Call_Distribution
+	FROM  "Calls" cl
+LEFT JOIN "Users" u ON u."Id"  = cl."Call Owner"  
+	WHERE	 cl."Call Type"  = 'Outbound'
+	GROUP BY  cl."LEADID" 
+) AS  calls ON calls.Lead_ID  = f."Id" /* ── Scheduled / Pending Calls ── */
+ 
+LEFT JOIN(	SELECT
+			 cl."LEADID" AS Lead_ID,
+			 /* Latest future scheduled call */ MAX(CASE
+					 WHEN cl."Call Status"  = 'Scheduled'
+					 AND	cl."Scheduled in CRM"  = 'True'
+					 AND	TIMESTAMP(cl."Call Start Time")  > TIMESTAMP(NOW()) THEN cl."Call Start Time"
+					 ELSE NULL
+				 END) AS Scheduled_Call_Time,
+			 MAX(CASE
+					 WHEN cl."Call Status"  = 'Scheduled'
+					 AND	cl."Scheduled in CRM"  = 'True'
+					 AND	TIMESTAMP(cl."Call Start Time")  > TIMESTAMP(NOW()) THEN IFNULL(u."Email", 'Unknown')
+					 ELSE NULL
+				 END) AS Scheduled_By,
+			 /* Latest next-call date from completed calls */ MAX(CASE
+					 WHEN cl."Call Status"  = 'Completed'
+					 AND	cl."Next Call Schedule Date"  IS NOT NULL
+					 AND	cl."Next Call Schedule Date"  <> '' THEN cl."Next Call Schedule Date"
+					 ELSE NULL
+				 END) AS Next_Call_Date,
+			 MAX(CASE
+					 WHEN cl."Call Status"  = 'Completed'
+					 AND	cl."Next Call Schedule Date"  IS NOT NULL
+					 AND	cl."Next Call Schedule Date"  <> '' THEN IFNULL(u."Email", 'Unknown')
+					 ELSE NULL
+				 END) AS Next_Call_Set_By
+	FROM  "Calls" cl
+LEFT JOIN "Users" u ON u."Id"  = cl."Call Owner"  
+	WHERE	 cl."Call Type"  = 'Outbound'
+	GROUP BY  cl."LEADID" 
+) AS  sched ON sched.Lead_ID  = f."Id" /* ── First Assignment Time ── */
+ 
+LEFT JOIN(	SELECT
+			 o."Followup" AS Followup,
+			 MIN(o."Modified Time") AS First_Assignment_Time
+	FROM  "Owner History" o 
+	GROUP BY  o."Followup" 
+) AS  assign ON assign.Followup  = f."Id"  
+WHERE	 f."Created Time"  IS NOT NULL
+ORDER BY f."Created Time" DESC 
+-------------------------------------------
+SELECT
+		 sop.Followup_Owner AS Agent,
+		 COUNT(f."Id") AS Leads_Assigned,
+		 IFNULL(SUM(calls.Total_Calls), 0) AS Calls_Made,
+		 /* ── SOP Met % ── */ ROUND(SUM(CASE
+				 WHEN IFNULL(calls.Total_Calls, 0)  >= sop.Required_Calls
+				 AND	sop.Required_Calls  > 0
+				 AND	sop.Status_Type  NOT IN ( 'EXCLUDED'  , 'INVALID'  , 'SKIP'  ) THEN 1
+				 ELSE 0
+			 END) * 100.0 / NULLIF(SUM(CASE
+				 WHEN sop.Status_Type  NOT IN ( 'EXCLUDED'  , 'INVALID'  , 'SKIP'  )
+				 AND	sop.Required_Calls  > 0 THEN 1
+				 ELSE 0
+			 END), 0), 1) AS SOP_Met_Pct,
+		 /* ── First Call < 15 min % ── */ ROUND(SUM(CASE
+				 WHEN calls.First_Call_Time  IS NOT NULL
+				 AND	assign.First_Assignment_Time  IS NOT NULL
+				 AND	TIMESTAMPDIFF(minute, TIMESTAMP(assign.First_Assignment_Time), TIMESTAMP(calls.First_Call_Time))  <= 15 THEN 1
+				 ELSE 0
+			 END) * 100.0 / NULLIF(SUM(CASE
+				 WHEN assign.First_Assignment_Time  IS NOT NULL
+				 AND	sop.Status_Type  <> 'EXCLUDED' THEN 1
+				 ELSE 0
+			 END), 0), 1) AS First_Call_Pct,
+		 /* ── Overdue Count ── */ SUM(CASE
+				 WHEN sched.Scheduled_Call_Time  IS NOT NULL
+				 AND	TIMESTAMP(sched.Scheduled_Call_Time)  <= TIMESTAMP(NOW())
+				 AND	(calls.Last_Call_Time  IS NULL
+				 OR	TIMESTAMP(calls.Last_Call_Time)  < TIMESTAMP(sched.Scheduled_Call_Time)) THEN 1
+				 WHEN sched.Next_Call_Date  IS NOT NULL
+				 AND	TIMESTAMP(sched.Next_Call_Date)  <= TIMESTAMP(NOW())
+				 AND	(calls.Last_Call_Time  IS NULL
+				 OR	TIMESTAMP(calls.Last_Call_Time)  < TIMESTAMP(sched.Next_Call_Date)) THEN 1
+				 ELSE 0
+			 END) AS Overdue_Count,
+		 
+			/* ── SOP Status Label ── */
+			CASE
+				 WHEN ROUND(SUM(CASE
+						 WHEN IFNULL(calls.Total_Calls, 0)  >= sop.Required_Calls
+						 AND	sop.Required_Calls  > 0
+						 AND	sop.Status_Type  NOT IN ( 'EXCLUDED'  , 'INVALID'  , 'SKIP'  ) THEN 1
+						 ELSE 0
+					 END) * 100.0 / NULLIF(SUM(CASE
+						 WHEN sop.Status_Type  NOT IN ( 'EXCLUDED'  , 'INVALID'  , 'SKIP'  )
+						 AND	sop.Required_Calls  > 0 THEN 1
+						 ELSE 0
+					 END), 0), 1)  >= 80 THEN 'On Track'
+				 WHEN ROUND(SUM(CASE
+						 WHEN IFNULL(calls.Total_Calls, 0)  >= sop.Required_Calls
+						 AND	sop.Required_Calls  > 0
+						 AND	sop.Status_Type  NOT IN ( 'EXCLUDED'  , 'INVALID'  , 'SKIP'  ) THEN 1
+						 ELSE 0
+					 END) * 100.0 / NULLIF(SUM(CASE
+						 WHEN sop.Status_Type  NOT IN ( 'EXCLUDED'  , 'INVALID'  , 'SKIP'  )
+						 AND	sop.Required_Calls  > 0 THEN 1
+						 ELSE 0
+					 END), 0), 1)  >= 60 THEN 'At Risk'
+				 ELSE 'Breaching'
+			 END AS SOP_Status
+FROM  "Followup" f /* ── SOP / Required Calls ── */
+LEFT JOIN(	SELECT
+			 f1."Id" AS Id,
+			 u."Email" AS Followup_Owner,
+			 
+				CASE
+					 WHEN f1."Phone"  IS NULL THEN 'Yes'
+					 ELSE 'No'
+				 END AS Is_Number,
+			 
+				CASE
+					 WHEN u."Email"  IN ( 'admin@rgis.live'  , 'sandy.s@nexora.live'  , 'shiva@nexora.live'  , 'prithvi@nexora.live'  , 'octfis@rgis.live'  , 'aviraj@nexora.live'  , 'jeevan@nexora.live'  , 'rahul.r@nexora.live'  , 'robin@nexora.live'  ) THEN 'EXCLUDED'
+					 WHEN f1."Followup Status"  = 'Ringing/Busy' THEN 'RINGING'
+					 WHEN f1."Followup Status"  = 'Call Later' THEN 'CALL_LATER'
+					 WHEN f1."Followup Status"  = 'Invalid Number' THEN 'INVALID'
+					 WHEN f1."Followup Status"  IN ( 'Prospect'  , 'Interested'  ) THEN 'PROSPECT'
+					 WHEN f1."Followup Status"  = 'Didn''t Connect' THEN 'DIDNT_CONNECT'
+					 WHEN f1."Followup Status"  IN ( 'Lost Lead'  , 'Duplicate'  ) THEN 'SKIP'
+					 WHEN f1."Followup Status"  = 'Contact In Future' THEN 'SCHEDULED'
+					 ELSE 'OTHER'
+				 END AS Status_Type,
+			 
+				CASE
+					 WHEN TIME(f1."Created Time")  > '17:30:00' THEN DATEADD(minute, 570, DATEADD(day, 1, DATE(f1."Created Time")))
+					 ELSE f1."Created Time"
+				 END AS SOP_Time,
+			 COUNT(c.calendar_date) AS Adjusted_Days,
+			 
+				CASE
+					 WHEN f1."Phone"  IS NULL THEN 0
+					 WHEN u."Email"  IN ( 'admin@rgis.live'  , 'sandy.s@nexora.live'  , 'shiva@nexora.live'  , 'prithvi@nexora.live'  , 'octfis@rgis.live'  , 'aviraj@nexora.live'  , 'jeevan@nexora.live'  , 'rahul.r@nexora.live'  , 'robin@nexora.live'  ) THEN 0
+					 WHEN f1."Followup Status"  = 'Invalid Number' THEN 0
+					 WHEN f1."Followup Status"  IN ( 'Lost Lead'  , 'Duplicate'  ) THEN 0
+					 WHEN f1."Followup Status"  = 'Ringing/Busy' THEN 
+						CASE
+							 WHEN COUNT(c.calendar_date)  <= 1 THEN 3
+							 ELSE 3 + FLOOR((COUNT(c.calendar_date) -1) / 2)
+						 END
+					 WHEN f1."Followup Status"  = 'Call Later' THEN 
+						CASE
+							 WHEN COUNT(c.calendar_date)  <= 1 THEN 1
+							 ELSE 1 + FLOOR((COUNT(c.calendar_date) -1) / 2)
+						 END
+					 WHEN f1."Followup Status"  = 'Didn''t Connect' THEN 
+						CASE
+							 WHEN COUNT(c.calendar_date)  <= 1 THEN 2
+							 ELSE 3 + FLOOR((COUNT(c.calendar_date) -1) / 2)
+						 END
+					 WHEN f1."Followup Status"  IN ( 'Prospect'  , 'Interested'  ) THEN COUNT(c.calendar_date)
+					 ELSE COUNT(c.calendar_date)
+				 END AS Required_Calls
+	FROM  "Followup" f1
+LEFT JOIN "Users" u ON f1."Followup Owner"  = u."Id" 
+LEFT JOIN "calendar_table" c ON c.calendar_date  > DATE(CASE
+				 WHEN TIME(f1."Created Time")  > '17:30:00' THEN DATEADD(day, 1, DATE(f1."Created Time"))
+				 ELSE DATE(f1."Created Time")
+			 END)
+		 AND	c.calendar_date  <= TODAY()
+		 AND	DAYOFWEEK(c.calendar_date)  <> 1  
+	GROUP BY f1."Id",
+		 f1."Followup Status",
+		 f1."Created Time",
+		 f1."Phone",
+		  u."Email" 
+) AS  sop ON sop.Id  = f."Id" /* ── Call Distribution + Counts ── */
+ 
+LEFT JOIN(	SELECT
+			 cl."LEADID" AS Lead_ID,
+			 MIN(cl."Call Start Time") AS First_Call_Time,
+			 MAX(cl."Call Start Time") AS Last_Call_Time,
+			 COUNT(cl."Id") AS Total_Calls
+	FROM  "Calls" cl 
+	WHERE	 cl."Call Type"  = 'Outbound'
+	GROUP BY  cl."LEADID" 
+) AS  calls ON calls.Lead_ID  = f."Id" /* ── Scheduled / Pending Calls ── */
+ 
+LEFT JOIN(	SELECT
+			 cl."LEADID" AS Lead_ID,
+			 MAX(CASE
+					 WHEN cl."Call Status"  = 'Scheduled'
+					 AND	cl."Scheduled in CRM"  = 'True'
+					 AND	TIMESTAMP(cl."Call Start Time")  > TIMESTAMP(NOW()) THEN cl."Call Start Time"
+					 ELSE NULL
+				 END) AS Scheduled_Call_Time,
+			 MAX(CASE
+					 WHEN cl."Call Status"  = 'Completed'
+					 AND	cl."Next Call Schedule Date"  IS NOT NULL
+					 AND	cl."Next Call Schedule Date"  <> '' THEN cl."Next Call Schedule Date"
+					 ELSE NULL
+				 END) AS Next_Call_Date
+	FROM  "Calls" cl 
+	WHERE	 cl."Call Type"  = 'Outbound'
+	GROUP BY  cl."LEADID" 
+) AS  sched ON sched.Lead_ID  = f."Id" /* ── First Assignment Time ── */
+ 
+LEFT JOIN(	SELECT
+			 o."Followup" AS Followup,
+			 MIN(o."Modified Time") AS First_Assignment_Time
+	FROM  "Owner History" o 
+	GROUP BY  o."Followup" 
+) AS  assign ON assign.Followup  = f."Id"  
+WHERE	 f."Created Time"  IS NOT NULL /* ✅ CURRENT MONTH FILTER ADDED */
+ AND	YEAR(f."Created Time")  = YEAR(TODAY())
+ AND	MONTH(f."Created Time")  = MONTH(TODAY())
+ AND	sop.Followup_Owner  NOT IN ( 'admin@rgis.live'  , 'sandy.s@nexora.live'  , 'shiva@nexora.live'  , 'prithvi@nexora.live'  , 'octfis@rgis.live'  , 'aviraj@nexora.live'  , 'jeevan@nexora.live'  , 'rahul.r@nexora.live'  , 'robin@nexora.live'  )
+GROUP BY  sop.Followup_Owner 
+ORDER BY SOP_Met_Pct DESC 
