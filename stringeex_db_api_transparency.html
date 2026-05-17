@@ -1,0 +1,484 @@
+
+<h2 class="sr-only">StringeeX — Database inspection, API field reference, and data debugging guide</h2>
+<style>
+  .ref { font-family: var(--font-sans); padding: 0.5rem 0 2rem; }
+  .sec { margin-bottom: 2rem; }
+  .sec-hdr { display:flex; align-items:center; gap:10px; margin-bottom:.75rem; border-bottom:.5px solid var(--color-border-tertiary); padding-bottom:.5rem; }
+  .sec-hdr i { font-size:18px; color:var(--color-text-secondary); }
+  .sec-title { font-size:13px; font-weight:500; color:var(--color-text-secondary); letter-spacing:.06em; text-transform:uppercase; margin:0; }
+  .card { background:var(--color-background-primary); border:.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:.85rem 1.1rem; margin-bottom:8px; }
+  .card:hover { border-color:var(--color-border-secondary); }
+  .row-top { display:flex; align-items:flex-start; gap:10px; }
+  .tag { font-size:11px; font-weight:500; padding:2px 8px; border-radius:var(--border-radius-md); white-space:nowrap; flex-shrink:0; margin-top:2px; }
+  .t-pg { background:#E6F1FB; color:#0C447C; }
+  .t-dj { background:#E1F5EE; color:#085041; }
+  .t-api { background:#EEEDFE; color:#3C3489; }
+  .t-tip { background:#FAEEDA; color:#633806; }
+  .t-warn { background:#FAECE7; color:#712B13; }
+  .body { flex:1; min-width:0; }
+  .desc { font-size:13px; color:var(--color-text-secondary); margin:0 0 6px; }
+  .code { font-family:var(--font-mono); font-size:12.5px; background:var(--color-background-secondary); border:.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-md); padding:6px 10px; color:var(--color-text-primary); word-break:break-all; display:block; margin-bottom:4px; }
+  .note { font-size:12px; color:var(--color-text-secondary); margin-top:5px; display:flex; align-items:flex-start; gap:5px; }
+  .note i { font-size:13px; flex-shrink:0; margin-top:1px; }
+  .cpbtn { font-size:11px; background:transparent; border:.5px solid var(--color-border-secondary); border-radius:var(--border-radius-md); padding:3px 8px; cursor:pointer; color:var(--color-text-secondary); flex-shrink:0; }
+  .cpbtn:hover { background:var(--color-background-secondary); }
+  .cpbtn.ok { color:#0F6E56; border-color:#0F6E56; }
+  table.schema { width:100%; font-size:12.5px; border-collapse:collapse; margin-top:8px; }
+  table.schema th { font-size:11px; font-weight:500; color:var(--color-text-secondary); text-align:left; padding:4px 8px 4px 0; border-bottom:.5px solid var(--color-border-tertiary); }
+  table.schema td { padding:5px 8px 5px 0; color:var(--color-text-primary); border-bottom:.5px solid var(--color-border-tertiary); vertical-align:top; }
+  table.schema tr:last-child td { border-bottom:none; }
+  .col-field { font-family:var(--font-mono); font-size:12px; color:#185FA5; }
+  .col-type { font-size:11.5px; color:var(--color-text-secondary); }
+  .col-note { font-size:12px; color:var(--color-text-secondary); }
+  .badge { display:inline-block; font-size:10px; padding:1px 6px; border-radius:var(--border-radius-md); margin-left:4px; }
+  .b-pk { background:#FAEEDA; color:#633806; }
+  .b-team { background:#E1F5EE; color:#085041; }
+  .b-calc { background:#EEEDFE; color:#3C3489; }
+  .api-field { display:inline-block; font-family:var(--font-mono); font-size:11px; background:var(--color-background-secondary); border:.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-md); padding:1px 6px; margin:2px 3px 2px 0; color:var(--color-text-primary); }
+</style>
+
+<div class="ref">
+
+  <!-- DB SCHEMA -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-table" aria-hidden="true"></i>
+      <p class="sec-title">Database schema — calls_callrecord table</p>
+    </div>
+    <div class="card">
+      <table class="schema">
+        <thead>
+          <tr>
+            <th>Column</th><th>Type</th><th>What it means</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="col-field">id <span class="badge b-pk">PK</span></td><td class="col-type">varchar(128)</td><td class="col-note">StringeeX's own call ID — primary key, never duplicated</td></tr>
+          <tr><td class="col-field">account_name</td><td class="col-type">varchar</td><td class="col-note">Agent email from API (e.g. <span style="font-family:var(--font-mono);font-size:11px">anushka@bluewave.com</span>)</td></tr>
+          <tr><td class="col-field">direction</td><td class="col-type">varchar</td><td class="col-note">'inbound', 'outbound', or 'internal'. API sends 0/1 — mapped at ingest.</td></tr>
+          <tr><td class="col-field">start_time_ms</td><td class="col-type">bigint</td><td class="col-note">Call start — Unix milliseconds UTC. Divide by 1000 for seconds.</td></tr>
+          <tr><td class="col-field">end_time_ms</td><td class="col-type">bigint</td><td class="col-note">Call end — Unix milliseconds UTC</td></tr>
+          <tr><td class="col-field">duration</td><td class="col-type">integer</td><td class="col-note">Total call duration in seconds (ringing + talk)</td></tr>
+          <tr><td class="col-field">talk_duration</td><td class="col-type">integer</td><td class="col-note">Agent talk time in seconds. If 0 → call was not connected.</td></tr>
+          <tr><td class="col-field">answer_duration</td><td class="col-type">float</td><td class="col-note">Same as talk_duration for connected calls (from API)</td></tr>
+          <tr><td class="col-field">end_call_reason</td><td class="col-type">varchar</td><td class="col-note">Why call ended. 'CAN_NOT_MAKE_CALL' rows are skipped at ingest.</td></tr>
+          <tr><td class="col-field">customer_number</td><td class="col-type">varchar</td><td class="col-note">External phone number dialled / calling in</td></tr>
+          <tr><td class="col-field">stringee_number</td><td class="col-type">varchar</td><td class="col-note">The virtual Stringee number used</td></tr>
+          <tr><td class="col-field">full_name <span class="badge b-team">team</span></td><td class="col-type">varchar</td><td class="col-note">Agent display name from Team_tradex.xlsx</td></tr>
+          <tr><td class="col-field">employee_code <span class="badge b-team">team</span></td><td class="col-type">varchar</td><td class="col-note">HR employee code from Excel</td></tr>
+          <tr><td class="col-field">pool <span class="badge b-team">team</span></td><td class="col-type">varchar</td><td class="col-note">Team pool (e.g. Sales, Support) from Excel</td></tr>
+          <tr><td class="col-field">tl <span class="badge b-team">team</span></td><td class="col-type">varchar</td><td class="col-note">Team Leader name from Excel</td></tr>
+          <tr><td class="col-field">vertical <span class="badge b-team">team</span></td><td class="col-type">varchar</td><td class="col-note">Business vertical from Excel</td></tr>
+          <tr><td class="col-field">fetched_at</td><td class="col-type">timestamptz</td><td class="col-note">When WE inserted this record into our DB (auto-set)</td></tr>
+        </tbody>
+      </table>
+      <p class="note" style="margin-top:10px"><i class="ti ti-info-circle" aria-hidden="true"></i>Computed properties (not stored): <span class="api-field">queue_duration_secs</span> = duration − talk_duration &nbsp;·&nbsp; <span class="api-field">is_connected</span> = talk_duration &gt; 0</p>
+    </div>
+  </div>
+
+  <!-- PSQL INSPECTION -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-terminal" aria-hidden="true"></i>
+      <p class="sec-title">PostgreSQL — connect &amp; inspect</p>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Connect to the database (from server)</p>
+          <code class="code">psql -U admin -d cdr -h localhost</code>
+          <p class="note"><i class="ti ti-info-circle" aria-hidden="true"></i>Password is Admin@nexora5 (from .env)</p>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'psql -U admin -d cdr -h localhost')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Count total records in the table</p>
+          <code class="code">SELECT COUNT(*) FROM calls_callrecord;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'SELECT COUNT(*) FROM calls_callrecord;')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">See the 10 most recent calls ingested</p>
+          <code class="code">SELECT id, account_name, direction, start_time_ms, talk_duration, end_call_reason FROM calls_callrecord ORDER BY start_time_ms DESC LIMIT 10;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT id, account_name, direction, start_time_ms, talk_duration, end_call_reason FROM calls_callrecord ORDER BY start_time_ms DESC LIMIT 10;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Readable timestamps — convert ms to local time</p>
+          <code class="code">SELECT account_name, to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai' AS call_time, talk_duration, direction FROM calls_callrecord ORDER BY start_time_ms DESC LIMIT 20;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT account_name, to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai' AS call_time, talk_duration, direction FROM calls_callrecord ORDER BY start_time_ms DESC LIMIT 20;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Calls today (Dubai time)</p>
+          <code class="code">SELECT COUNT(*) FROM calls_callrecord WHERE to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai' >= CURRENT_DATE AT TIME ZONE 'Asia/Dubai';</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT COUNT(*) FROM calls_callrecord WHERE to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai' >= CURRENT_DATE AT TIME ZONE 'Asia/Dubai';`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Calls per agent today — ranked by count</p>
+          <code class="code">SELECT account_name, full_name, tl, COUNT(*) AS total, SUM(CASE WHEN talk_duration > 0 THEN 1 ELSE 0 END) AS connected FROM calls_callrecord WHERE to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai' >= CURRENT_DATE AT TIME ZONE 'Asia/Dubai' GROUP BY account_name, full_name, tl ORDER BY total DESC;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT account_name, full_name, tl, COUNT(*) AS total, SUM(CASE WHEN talk_duration > 0 THEN 1 ELSE 0 END) AS connected FROM calls_callrecord WHERE to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai' >= CURRENT_DATE AT TIME ZONE 'Asia/Dubai' GROUP BY account_name, full_name, tl ORDER BY total DESC;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Agents with no team enrichment (null pool/tl) — missing from Excel</p>
+          <code class="code">SELECT DISTINCT account_name, full_name FROM calls_callrecord WHERE pool IS NULL OR tl IS NULL ORDER BY account_name;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT DISTINCT account_name, full_name FROM calls_callrecord WHERE pool IS NULL OR tl IS NULL ORDER BY account_name;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Distribution of end_call_reason values (what's being filtered out)</p>
+          <code class="code">SELECT end_call_reason, COUNT(*) AS n FROM calls_callrecord GROUP BY end_call_reason ORDER BY n DESC;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT end_call_reason, COUNT(*) AS n FROM calls_callrecord GROUP BY end_call_reason ORDER BY n DESC;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Date range of data in the DB — oldest and newest call</p>
+          <code class="code">SELECT to_timestamp(MIN(start_time_ms)/1000) AT TIME ZONE 'Asia/Dubai' AS oldest, to_timestamp(MAX(start_time_ms)/1000) AT TIME ZONE 'Asia/Dubai' AS newest FROM calls_callrecord;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT to_timestamp(MIN(start_time_ms)/1000) AT TIME ZONE 'Asia/Dubai' AS oldest, to_timestamp(MAX(start_time_ms)/1000) AT TIME ZONE 'Asia/Dubai' AS newest FROM calls_callrecord;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Calls per day — data volume overview</p>
+          <code class="code">SELECT DATE(to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai') AS day, COUNT(*) AS calls FROM calls_callrecord GROUP BY day ORDER BY day DESC LIMIT 14;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT DATE(to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai') AS day, COUNT(*) AS calls FROM calls_callrecord GROUP BY day ORDER BY day DESC LIMIT 14;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Check when records were last fetched (sync health)</p>
+          <code class="code">SELECT MAX(fetched_at) AS last_sync, COUNT(*) FILTER (WHERE fetched_at > NOW() - INTERVAL '10 minutes') AS synced_last_10min FROM calls_callrecord;</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT MAX(fetched_at) AS last_sync, COUNT(*) FILTER (WHERE fetched_at > NOW() - INTERVAL '10 minutes') AS synced_last_10min FROM calls_callrecord;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-pg">psql</span>
+        <div class="body">
+          <p class="desc">Look up all calls from a specific agent email</p>
+          <code class="code">SELECT to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai' AS time, direction, talk_duration, end_call_reason, customer_number FROM calls_callrecord WHERE account_name ILIKE '%anushka%' ORDER BY start_time_ms DESC LIMIT 20;</code>
+          <p class="note"><i class="ti ti-info-circle" aria-hidden="true"></i>Replace anushka with any name or email fragment</p>
+        </div>
+        <button class="cpbtn" onclick="cp(this,`SELECT to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai' AS time, direction, talk_duration, end_call_reason, customer_number FROM calls_callrecord WHERE account_name ILIKE '%anushka%' ORDER BY start_time_ms DESC LIMIT 20;`)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DJANGO SHELL -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-brand-python" aria-hidden="true"></i>
+      <p class="sec-title">Django shell — Python-level inspection</p>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-dj">django</span>
+        <div class="body">
+          <p class="desc">Count records and check date range in one go</p>
+          <code class="code">python manage.py shell -c "
+from calls.models import CallRecord
+from datetime import datetime, timezone
+qs = CallRecord.objects
+print('Total:', qs.count())
+newest = qs.order_by('-start_time_ms').first()
+oldest = qs.order_by('start_time_ms').first()
+fmt = lambda r: datetime.fromtimestamp(r.start_time_ms/1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M') if r else 'N/A'
+print('Oldest:', fmt(oldest))
+print('Newest:', fmt(newest))
+"</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'python manage.py shell -c \"from calls.models import CallRecord; qs=CallRecord.objects; print(qs.count())\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-dj">django</span>
+        <div class="body">
+          <p class="desc">Find agents whose team fields are missing (not enriched)</p>
+          <code class="code">python manage.py shell -c "
+from calls.models import CallRecord
+gaps = CallRecord.objects.filter(tl__isnull=True).values_list('account_name', flat=True).distinct()
+for a in gaps: print(a)
+"</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'python manage.py shell -c \"from calls.models import CallRecord; gaps=CallRecord.objects.filter(tl__isnull=True).values_list(chr(39)account_name chr(39),flat=True).distinct(); [print(a) for a in gaps]\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-dj">django</span>
+        <div class="body">
+          <p class="desc">Check connect rate for today</p>
+          <code class="code">python manage.py shell -c "
+from calls.models import CallRecord
+from django.db.models import Count, Q
+from datetime import datetime
+from zoneinfo import ZoneInfo
+IST = ZoneInfo('Asia/Kolkata')
+now = datetime.now(tz=IST)
+s = int(datetime(now.year,now.month,now.day,0,0,0,tzinfo=IST).timestamp()*1000)
+e = int(datetime(now.year,now.month,now.day,23,59,59,tzinfo=IST).timestamp()*1000)
+agg = CallRecord.objects.filter(start_time_ms__gte=s,start_time_ms__lte=e).aggregate(total=Count('id'),connected=Count('id',filter=Q(talk_duration__gt=0)))
+print(agg)
+"</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'python manage.py shell')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-dj">django</span>
+        <div class="body">
+          <p class="desc">Verify team lookup is loading from Excel correctly</p>
+          <code class="code">python manage.py shell -c "
+from calls.team_lookup import get_team_lookup
+lookup = get_team_lookup()
+print('Agents in Excel lookup:', len(lookup))
+for prefix, row in list(lookup.items())[:5]:
+    print(' ', prefix, '->', row.get('full_name'), '/', row.get('tl'))
+"</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'python manage.py shell -c \"from calls.team_lookup import get_team_lookup; lk=get_team_lookup(); print(len(lk), list(lk.items())[:3])\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- API RESPONSE DECODER -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-code" aria-hidden="true"></i>
+      <p class="sec-title">API response field decoder</p>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-api">/api/stats/</span>
+        <div class="body">
+          <p class="desc">What each field means in the KPI response</p>
+          <div style="font-size:12.5px; margin-top:4px;">
+            <div style="margin-bottom:3px;"><span class="api-field">total</span> all calls in the period (including unanswered)</div>
+            <div style="margin-bottom:3px;"><span class="api-field">connected</span> calls where talk_duration &gt; 0 (agent actually spoke)</div>
+            <div style="margin-bottom:3px;"><span class="api-field">connect_rate</span> connected ÷ total × 100, rounded to 1dp</div>
+            <div style="margin-bottom:3px;"><span class="api-field">inbound</span> / <span class="api-field">outbound</span> direction counts</div>
+            <div style="margin-bottom:3px;"><span class="api-field">avg_talk_secs</span> average talk time in seconds (connected calls only)</div>
+            <div style="margin-bottom:3px;"><span class="api-field">total_talk_mins</span> total agent talk time in minutes</div>
+            <div style="margin-bottom:3px;"><span class="api-field">total_dur_mins</span> total duration including ringing/queue in minutes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-api">/api/calls/</span>
+        <div class="body">
+          <p class="desc">Key fields in each call row</p>
+          <div style="font-size:12.5px; margin-top:4px;">
+            <div style="margin-bottom:3px;"><span class="api-field">start_time_ms</span> Unix ms UTC — divide by 1000 to get epoch seconds</div>
+            <div style="margin-bottom:3px;"><span class="api-field">duration</span> total seconds (ringing + queue + talk)</div>
+            <div style="margin-bottom:3px;"><span class="api-field">talk_duration</span> seconds the agent was actually talking (0 = not answered)</div>
+            <div style="margin-bottom:3px;"><span class="api-field">queue_duration_secs</span> duration − talk_duration (time before agent picked up)</div>
+            <div style="margin-bottom:3px;"><span class="api-field">talk_duration_display</span> / <span class="api-field">queue_duration_display</span> formatted as HH:MM:SS</div>
+            <div style="margin-bottom:3px;"><span class="api-field">is_connected</span> true if talk_duration &gt; 0</div>
+            <div style="margin-bottom:3px;"><span class="api-field">end_call_reason</span> terminal state from StringeeX API</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-api">/api/agent-summary/</span>
+        <div class="body">
+          <p class="desc">Per-agent rollup fields</p>
+          <div style="font-size:12.5px; margin-top:4px;">
+            <div style="margin-bottom:3px;"><span class="api-field">total_calls</span> all calls assigned to this agent</div>
+            <div style="margin-bottom:3px;"><span class="api-field">connected_calls</span> calls where talk_duration &gt; 0</div>
+            <div style="margin-bottom:3px;"><span class="api-field">connect_rate</span> percentage (0–100)</div>
+            <div style="margin-bottom:3px;"><span class="api-field">talk_time</span> total talk time in HH:MM:SS</div>
+            <div style="margin-bottom:3px;"><span class="api-field">queue_time</span> total time in queue in HH:MM:SS</div>
+            <div style="margin-bottom:3px;"><span class="api-field">total_time</span> sum of all call durations in HH:MM:SS</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-api">/api/hourly-breakdown/</span>
+        <div class="body">
+          <p class="desc">Understanding the nested hourly structure</p>
+          <div style="font-size:12.5px; margin-top:4px;">
+            <div style="margin-bottom:3px;"><span class="api-field">hours</span> sorted list of hours with data (e.g. [9, 10, 11, 12])</div>
+            <div style="margin-bottom:3px;"><span class="api-field">rows[].hourly[H].calls</span> calls in that hour for that agent</div>
+            <div style="margin-bottom:3px;"><span class="api-field">rows[].hourly[H].unique_dials</span> distinct customer numbers in that hour</div>
+            <div style="margin-bottom:3px;"><span class="api-field">rows[].totals</span> day total across all hours for this agent</div>
+            <div style="margin-bottom:3px;"><span class="api-field">hour_totals[H]</span> grand total across all agents for that hour</div>
+            <div style="margin-bottom:3px;"><span class="api-field">hours are IST/Dubai local</span> (not UTC) — 9 means 9am Dubai time</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATA GOTCHAS -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+      <p class="sec-title">Common gotchas &amp; debugging tips</p>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-warn">gotcha</span>
+        <div class="body">
+          <p class="desc">Agent shows in API but has no team data (pool/tl = "—")</p>
+          <p class="note" style="margin-top:0"><i class="ti ti-arrow-right" aria-hidden="true"></i>Their email prefix isn't in Sheet2 of Team_tradex.xlsx. Add them there and run <span style="font-family:var(--font-mono);font-size:11px">python manage.py reenrich_teams</span>, then POST <span style="font-family:var(--font-mono);font-size:11px">/api/reload-team/</span>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-warn">gotcha</span>
+        <div class="body">
+          <p class="desc">Dashboard shows zero calls for today but the DB has data</p>
+          <p class="note" style="margin-top:0"><i class="ti ti-arrow-right" aria-hidden="true"></i>The date filter uses Dubai/IST midnight boundaries. Check that <span style="font-family:var(--font-mono);font-size:11px">start_time_ms</span> falls within the correct UTC window — run the readable timestamp query above to verify.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-warn">gotcha</span>
+        <div class="body">
+          <p class="desc">talk_duration is 0 for all calls — nothing is "connected"</p>
+          <p class="note" style="margin-top:0"><i class="ti ti-arrow-right" aria-hidden="true"></i>Likely a CSV import where the <span style="font-family:var(--font-mono);font-size:11px">answer_duration</span> column is null/empty for all rows. Check the raw CSV. Also verify <span style="font-family:var(--font-mono);font-size:11px">end_call_reason</span> distribution — if most are 'CAN_NOT_MAKE_CALL' they were filtered; if 'no_answer' they genuinely weren't picked up.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-warn">gotcha</span>
+        <div class="body">
+          <p class="desc">Duplicate-looking records after a re-sync</p>
+          <p class="note" style="margin-top:0"><i class="ti ti-arrow-right" aria-hidden="true"></i>Can't happen — <span style="font-family:var(--font-mono);font-size:11px">id</span> is the primary key. If today's record looks stale, the daemon uses <span style="font-family:var(--font-mono);font-size:11px">update_or_create</span> on today's data. Verify <span style="font-family:var(--font-mono);font-size:11px">fetched_at</span> of the latest record vs current time.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-warn">gotcha</span>
+        <div class="body">
+          <p class="desc">Hourly breakdown shows calls in wrong hour (off by timezone)</p>
+          <p class="note" style="margin-top:0"><i class="ti ti-arrow-right" aria-hidden="true"></i>Hours are bucketed in IST (UTC+5:30), same as Dubai. A call at 3:30am UTC appears in hour 9. If hours look shifted by ±4–5, the timezone config may have changed. Check <span style="font-family:var(--font-mono);font-size:11px">LOCAL_TZ</span> in views.py.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-tip">tip</span>
+        <div class="body">
+          <p class="desc">Quickly decode a raw start_time_ms in your terminal</p>
+          <code class="code">python -c "from datetime import datetime,timezone; print(datetime.fromtimestamp(1746700000000/1000, tz=timezone.utc))"</code>
+          <p class="note"><i class="ti ti-info-circle" aria-hidden="true"></i>Replace the number with any start_time_ms from the DB</p>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'python -c \"from datetime import datetime,timezone; print(datetime.fromtimestamp(1746700000000/1000, tz=timezone.utc))\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-tip">tip</span>
+        <div class="body">
+          <p class="desc">Pretty-print a full API response in terminal</p>
+          <code class="code">curl -s "http://localhost:8000/api/stats/?date=2026-05-13" | python -m json.tool</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'curl -s \"http://localhost:8000/api/stats/?date=2026-05-13\" | python -m json.tool')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row-top">
+        <span class="tag t-tip">tip</span>
+        <div class="body">
+          <p class="desc">Check if the daemon is running and syncing actively</p>
+          <code class="code">sudo journalctl -u stringeex-sync --since "10 minutes ago"</code>
+        </div>
+        <button class="cpbtn" onclick="cp(this,'sudo journalctl -u stringeex-sync --since \"10 minutes ago\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function cp(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add('ok');
+    btn.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
+    setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = '<i class="ti ti-copy" aria-hidden="true"></i>'; }, 1500);
+  });
+}
+</script>

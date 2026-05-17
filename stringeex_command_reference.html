@@ -1,0 +1,510 @@
+
+<h2 class="sr-only">StringeeX Django — Command & API Reference</h2>
+
+<style>
+  .cmd-ref { font-family: var(--font-sans); padding: 0.5rem 0 2rem; }
+  .section { margin-bottom: 2rem; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 0.75rem; border-bottom: 0.5px solid var(--color-border-tertiary); padding-bottom: 0.5rem; }
+  .section-header i { font-size: 18px; color: var(--color-text-secondary); }
+  .section-title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: 0.06em; text-transform: uppercase; margin: 0; }
+  .cmd-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 0.85rem 1.1rem; margin-bottom: 8px; }
+  .cmd-card:hover { border-color: var(--color-border-secondary); }
+  .cmd-top { display: flex; align-items: flex-start; gap: 10px; }
+  .cmd-label { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: var(--border-radius-md); white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+  .label-setup { background: #E6F1FB; color: #0C447C; }
+  .label-data { background: #E1F5EE; color: #085041; }
+  .label-dev { background: #FAEEDA; color: #633806; }
+  .label-prod { background: #EEEDFE; color: #3C3489; }
+  .label-debug { background: #FAECE7; color: #712B13; }
+  .label-get { background: #EAF3DE; color: #27500A; }
+  .label-post { background: #FAEEDA; color: #633806; }
+  .label-sys { background: #F1EFE8; color: #444441; }
+  .cmd-body { flex: 1; min-width: 0; }
+  .cmd-desc { font-size: 13px; color: var(--color-text-secondary); margin: 0 0 6px; }
+  .cmd-code { font-family: var(--font-mono); font-size: 12.5px; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 6px 10px; color: var(--color-text-primary); word-break: break-all; display: block; }
+  .cmd-note { font-size: 12px; color: var(--color-text-secondary); margin-top: 6px; display: flex; align-items: flex-start; gap: 5px; }
+  .cmd-note i { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .copy-btn { font-size: 11px; background: transparent; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 3px 8px; cursor: pointer; color: var(--color-text-secondary); flex-shrink: 0; margin-left: auto; }
+  .copy-btn:hover { background: var(--color-background-secondary); }
+  .copy-btn.copied { color: #0F6E56; border-color: #0F6E56; }
+  .url-tag { display: inline-block; font-family: var(--font-mono); font-size: 11.5px; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 2px 7px; margin: 2px 3px 2px 0; color: var(--color-text-primary); }
+</style>
+
+<div class="cmd-ref">
+
+  <div class="section">
+    <div class="section-header">
+      <i class="ti ti-settings" aria-hidden="true"></i>
+      <p class="section-title">Setup &amp; initialization</p>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-setup">setup</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Install all Python dependencies</p>
+          <code class="cmd-code">pip install -r requirements.txt</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'pip install -r requirements.txt')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-setup">setup</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Run database migrations (create or update tables)</p>
+          <code class="cmd-code">python manage.py migrate</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py migrate')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-setup">setup</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Create a Django admin superuser (one-time)</p>
+          <code class="cmd-code">python manage.py createsuperuser</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py createsuperuser')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-setup">setup</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Generate a secure random access token for the dashboard</p>
+          <code class="cmd-code">python -c "import secrets; print(secrets.token_urlsafe(24))"</code>
+          <p class="cmd-note"><i class="ti ti-info-circle" aria-hidden="true"></i>Paste the output into ACCESS_TOKEN in .env</p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python -c \"import secrets; print(secrets.token_urlsafe(24))\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <i class="ti ti-database" aria-hidden="true"></i>
+      <p class="section-title">Data sync &amp; management</p>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-data">data</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">One-shot live sync — fetches last 2 hours from StringeeX API</p>
+          <code class="cmd-code">python manage.py sync_calls</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py sync_calls')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-data">data</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">One-shot sync — fetch last N hours from API</p>
+          <code class="cmd-code">python manage.py sync_calls --hours 6</code>
+          <p class="cmd-note"><i class="ti ti-info-circle" aria-hidden="true"></i>Replace 6 with any number of hours</p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py sync_calls --hours 6')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-data">data</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Import from a downloaded CSV report file</p>
+          <code class="cmd-code">python manage.py sync_calls --csv /path/to/call_report_20260508_20260508.csv</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py sync_calls --csv /path/to/call_report.csv')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-data">data</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Backfill a date range from the StringeeX API</p>
+          <code class="cmd-code">python manage.py sync_calls --start 2026-05-01 --end 2026-05-09</code>
+          <p class="cmd-note"><i class="ti ti-info-circle" aria-hidden="true"></i>Fetches day by day. Historical records are never overwritten.</p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py sync_calls --start 2026-05-01 --end 2026-05-09')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-data">data</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Wipe all records, then backfill from date range</p>
+          <code class="cmd-code">python manage.py sync_calls --flush --start 2026-05-01 --end 2026-05-09</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py sync_calls --flush --start 2026-05-01 --end 2026-05-09')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-data">data</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Flush (wipe) all call records — no re-sync</p>
+          <code class="cmd-code">python manage.py sync_calls --flush</code>
+          <p class="cmd-note"><i class="ti ti-alert-triangle" aria-hidden="true"></i>Destructive — deletes all rows from the database</p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py sync_calls --flush')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-data">data</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Re-enrich team metadata on all existing records</p>
+          <code class="cmd-code">python manage.py reenrich_teams</code>
+          <p class="cmd-note"><i class="ti ti-info-circle" aria-hidden="true"></i>Run after updating Team_tradex.xlsx to apply new team mappings</p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py reenrich_teams')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <i class="ti ti-refresh" aria-hidden="true"></i>
+      <p class="section-title">Live daemon (continuous sync)</p>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-prod">prod</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Start the live sync daemon (every 4 minutes, recommended)</p>
+          <code class="cmd-code">python manage.py sync_calls --daemon --interval 4</code>
+          <p class="cmd-note"><i class="ti ti-info-circle" aria-hidden="true"></i>Today's records: update_or_create. Historical: get_or_create. Run in a separate terminal.</p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py sync_calls --daemon --interval 4')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-prod">prod</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Daemon with custom interval</p>
+          <code class="cmd-code">python manage.py sync_calls --daemon --interval 10</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py sync_calls --daemon --interval 10')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <i class="ti ti-player-play" aria-hidden="true"></i>
+      <p class="section-title">Running the server</p>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-dev">dev</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Start development server (all interfaces, port 8000)</p>
+          <code class="cmd-code">python manage.py runserver 0.0.0.0:8000</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py runserver 0.0.0.0:8000')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-prod">prod</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Start production server with gunicorn (2 workers)</p>
+          <code class="cmd-code">gunicorn stringeex_django.wsgi:application --bind 0.0.0.0:8000 --workers 2</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'gunicorn stringeex_django.wsgi:application --bind 0.0.0.0:8000 --workers 2')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-prod">prod</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Collect static files for nginx/production</p>
+          <code class="cmd-code">python manage.py collectstatic --noinput</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py collectstatic --noinput')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <i class="ti ti-bug" aria-hidden="true"></i>
+      <p class="section-title">Debugging &amp; inspection</p>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-debug">debug</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Open Django shell for direct model queries</p>
+          <code class="cmd-code">python manage.py shell</code>
+          <p class="cmd-note"><i class="ti ti-info-circle" aria-hidden="true"></i>Then: from calls.models import CallRecord; CallRecord.objects.count()</p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py shell')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-debug">debug</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Check how many call records are in the database</p>
+          <code class="cmd-code">python manage.py shell -c "from calls.models import CallRecord; print(CallRecord.objects.count())"</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py shell -c \"from calls.models import CallRecord; print(CallRecord.objects.count())\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-debug">debug</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Check the most recent call record ingested</p>
+          <code class="cmd-code">python manage.py shell -c "from calls.models import CallRecord; r=CallRecord.objects.order_by('-start_time_ms').first(); print(r.start_time_ms, r.account_name)"</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py shell -c \"from calls.models import CallRecord; r=CallRecord.objects.order_by(\'-start_time_ms\').first(); print(r.start_time_ms, r.account_name)\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-debug">debug</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">List all Django management commands available</p>
+          <code class="cmd-code">python manage.py help</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py help')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-debug">debug</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Check migration status (which have/haven't been applied)</p>
+          <code class="cmd-code">python manage.py showmigrations</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py showmigrations')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-debug">debug</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Check for model changes not yet in migrations</p>
+          <code class="cmd-code">python manage.py makemigrations --check --dry-run</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'python manage.py makemigrations --check --dry-run')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <i class="ti ti-api" aria-hidden="true"></i>
+      <p class="section-title">API endpoints (test with curl or browser)</p>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-get">GET</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">KPIs for a single agent on a specific date</p>
+          <code class="cmd-code">curl "http://localhost:8000/api/stats/?agent=email@domain.com&date=2026-05-13"</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'curl \"http://localhost:8000/api/stats/?agent=email@domain.com&date=2026-05-13\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-get">GET</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Per-agent summary report (total, connected, talk time, queue time)</p>
+          <code class="cmd-code">curl "http://localhost:8000/api/agent-summary/"</code>
+          <p class="cmd-note" style="flex-wrap:wrap;gap:4px;"><i class="ti ti-filter" aria-hidden="true"></i>Optional filters:
+            <span class="url-tag">?date=2026-05-13</span>
+            <span class="url-tag">?tl=Rehan</span>
+            <span class="url-tag">?pool=Sales</span>
+          </p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'curl \"http://localhost:8000/api/agent-summary/\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-get">GET</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Raw call records with filters</p>
+          <code class="cmd-code">curl "http://localhost:8000/api/calls/?connected=1&tl=Rehan"</code>
+          <p class="cmd-note" style="flex-wrap:wrap;gap:4px;"><i class="ti ti-filter" aria-hidden="true"></i>Optional filters:
+            <span class="url-tag">?connected=1</span>
+            <span class="url-tag">?tl=Rehan</span>
+            <span class="url-tag">?date=2026-05-13</span>
+          </p>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'curl \"http://localhost:8000/api/calls/?connected=1&tl=Rehan\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-get">GET</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Hourly call breakdown</p>
+          <code class="cmd-code">curl "http://localhost:8000/api/hourly-breakdown/?date=2026-05-13"</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'curl \"http://localhost:8000/api/hourly-breakdown/?date=2026-05-13\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-get">GET</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Team list (agents, TLs, pools)</p>
+          <code class="cmd-code">curl "http://localhost:8000/api/team-list/"</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'curl \"http://localhost:8000/api/team-list/\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-get">GET</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">When was the last successful sync?</p>
+          <code class="cmd-code">curl "http://localhost:8000/api/last-sync/"</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'curl \"http://localhost:8000/api/last-sync/\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-post">POST</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Hot-reload team data from Team_tradex.xlsx (no restart needed)</p>
+          <code class="cmd-code">curl -X POST "http://localhost:8000/api/reload-team/"</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'curl -X POST \"http://localhost:8000/api/reload-team/\"')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <i class="ti ti-server" aria-hidden="true"></i>
+      <p class="section-title">Systemd services (production)</p>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-sys">sys</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Reload systemd after editing service files</p>
+          <code class="cmd-code">sudo systemctl daemon-reload</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'sudo systemctl daemon-reload')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-sys">sys</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Start both web and sync services</p>
+          <code class="cmd-code">sudo systemctl start stringeex-web stringeex-sync</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'sudo systemctl start stringeex-web stringeex-sync')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-sys">sys</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Check status of both services</p>
+          <code class="cmd-code">sudo systemctl status stringeex-web stringeex-sync</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'sudo systemctl status stringeex-web stringeex-sync')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-sys">sys</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Restart both services (after code/config change)</p>
+          <code class="cmd-code">sudo systemctl restart stringeex-web stringeex-sync</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'sudo systemctl restart stringeex-web stringeex-sync')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-sys">sys</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Enable services to start on boot</p>
+          <code class="cmd-code">sudo systemctl enable stringeex-web stringeex-sync</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'sudo systemctl enable stringeex-web stringeex-sync')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-sys">sys</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Tail live logs from the sync daemon</p>
+          <code class="cmd-code">sudo journalctl -u stringeex-sync -f</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'sudo journalctl -u stringeex-sync -f')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="cmd-card">
+      <div class="cmd-top">
+        <span class="cmd-label label-sys">sys</span>
+        <div class="cmd-body">
+          <p class="cmd-desc">Test nginx config and reload</p>
+          <code class="cmd-code">sudo nginx -t && sudo systemctl reload nginx</code>
+        </div>
+        <button class="copy-btn" onclick="copyCmd(this, 'sudo nginx -t && sudo systemctl reload nginx')"><i class="ti ti-copy" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function copyCmd(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<i class="ti ti-copy" aria-hidden="true"></i>';
+    }, 1500);
+  });
+}
+</script>
