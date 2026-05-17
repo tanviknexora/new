@@ -1,0 +1,301 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:1rem 0 0.5rem}
+.tab{padding:7px 14px;font-size:13px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s}
+.tab.active{background:var(--color-background-primary);color:var(--color-text-primary);border-color:var(--color-border-primary);font-weight:500}
+.tab:hover:not(.active){border-color:var(--color-border-primary);color:var(--color-text-primary)}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:12px}
+.card-title{font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.card-body{font-size:13px;color:var(--color-text-secondary);line-height:1.7}
+.card-body p{margin-bottom:8px}
+.card-body p:last-child{margin-bottom:0}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:var(--border-radius-md)}
+.badge-warn{background:#FAEEDA;color:#854F0B}
+.badge-danger{background:#FCEBEB;color:#A32D2D}
+.badge-info{background:#E6F1FB;color:#185FA5}
+.badge-ok{background:#EAF3DE;color:#3B6D11}
+.badge-purple{background:#EEEDFE;color:#534AB7}
+code{font-family:var(--font-mono);font-size:12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:4px;padding:1px 5px}
+.flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;margin:10px 0}
+.flow-box{background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 10px;font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.flow-arrow{color:var(--color-text-tertiary);font-size:14px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.section-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-tertiary);margin:1.25rem 0 8px}
+.kv{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;gap:12px}
+.kv:last-child{border-bottom:none}
+.kv-key{color:var(--color-text-secondary)}
+.kv-val{font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);text-align:right}
+.step{display:flex;gap:12px;margin-bottom:12px}
+.step-num{width:24px;height:24px;min-width:24px;border-radius:50%;background:var(--color-background-info);color:#185FA5;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center}
+.step-body{flex:1;font-size:13px;color:var(--color-text-secondary);line-height:1.6;padding-top:2px}
+.step-body strong{color:var(--color-text-primary);font-weight:500}
+.highlight{background:var(--color-background-warning);border-left:3px solid #BA7517;padding:10px 12px;border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;font-size:13px;color:var(--color-text-secondary);margin-bottom:12px;line-height:1.6}
+.highlight strong{color:#BA7517;font-weight:500}
+.cmd-block{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px;font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);margin-bottom:8px;line-height:1.8}
+.cmd-comment{color:var(--color-text-tertiary)}
+@media(max-width:500px){.two-col{grid-template-columns:1fr}}
+</style>
+
+<h2 class="sr-only">StringeeX Django project — interactive study notes covering architecture, data flow, team lookup, sync mechanics, and environment reference</h2>
+
+<div class="tabs">
+  <button class="tab active" onclick="show('data-flow')">Data flow</button>
+  <button class="tab" onclick="show('sync')">Sync mechanics</button>
+  <button class="tab" onclick="show('team-lookup')">Team lookup</button>
+  <button class="tab" onclick="show('gotchas')">Gotchas</button>
+  <button class="tab" onclick="show('env-ref')">Env reference</button>
+  <button class="tab" onclick="show('commands')">Commands</button>
+</div>
+
+<div id="data-flow" class="panel active">
+  <p class="section-label">The one mental model you need</p>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-arrow-right" aria-hidden="true"></i> Data flows in one direction only</div>
+    <div class="flow">
+      <div class="flow-box">StringeeX API</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">sync_calls</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">PostgreSQL DB</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">API endpoints</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">Dashboard</div>
+    </div>
+    <div class="card-body" style="margin-top:10px">
+      <p>If something looks wrong on the dashboard, walk <strong>backwards</strong> through this chain. Wrong number → check the API endpoint → check the DB query → check if the sync ran → check if the data even exists in the DB.</p>
+    </div>
+  </div>
+
+  <p class="section-label">What lives where</p>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><i class="ti ti-file-code" aria-hidden="true"></i> <code>stringeex_service.py</code></div>
+      <div class="card-body">All HTTP calls to the StringeeX API. Handles multi-portal auth, pagination, and cross-portal deduplication. Nothing else touches the API.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-file-code" aria-hidden="true"></i> <code>sync_calls.py</code></div>
+      <div class="card-body">The management command. Orchestrates fetch → filter → enrich → upsert. Can run one-shot, backfill, daemon, or from CSV.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-file-code" aria-hidden="true"></i> <code>team_lookup.py</code></div>
+      <div class="card-body">Reads <code>Team_tradex.xlsx</code> once into memory. All enrichment (TL, pool, full name, employee code) happens here via prefix matching.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-file-code" aria-hidden="true"></i> <code>views.py</code></div>
+      <div class="card-body">Django API endpoints. Queries the DB (never the API). Converts UTC ms timestamps to IST for hour-bucketing. Read-only — no writes.</div>
+    </div>
+  </div>
+
+  <p class="section-label">The DB model — key fields</p>
+  <div class="card">
+    <div class="kv"><span class="kv-key"><code>id</code> — primary key</span><span class="kv-val">StringeeX's own call ID (string)</span></div>
+    <div class="kv"><span class="kv-key"><code>start_time_ms</code> / <code>end_time_ms</code></span><span class="kv-val">raw UTC milliseconds</span></div>
+    <div class="kv"><span class="kv-key"><code>talk_duration</code></span><span class="kv-val">agent talk time in seconds (0 = never answered)</span></div>
+    <div class="kv"><span class="kv-key"><code>duration</code></span><span class="kv-val">total call duration in seconds</span></div>
+    <div class="kv"><span class="kv-key"><code>account_name</code></span><span class="kv-val">agent email from API (e.g. irfan@bluewave.com)</span></div>
+    <div class="kv"><span class="kv-key">enriched: <code>tl</code>, <code>pool</code>, <code>full_name</code>, <code>vertical</code></span><span class="kv-val">from xlsx, not the API</span></div>
+    <div class="kv"><span class="kv-key"><code>is_connected</code> (property)</span><span class="kv-val">talk_duration > 0</span></div>
+    <div class="kv"><span class="kv-key"><code>queue_duration_secs</code> (property)</span><span class="kv-val">duration − talk_duration</span></div>
+  </div>
+</div>
+
+<div id="sync" class="panel">
+  <p class="section-label">The daemon's overlap trick</p>
+  <div class="highlight">
+    <strong>Why 9 minutes of data every 4 minutes?</strong> The overlap is intentional. The daemon fetches <code>interval + 5</code> minutes on every cycle. This prevents gaps if a poll is slightly late. It's safe because <code>update_or_create</code> handles duplicate inserts.
+  </div>
+
+  <p class="section-label">Smart upsert — the two modes</p>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><span class="badge badge-ok">today's records</span></div>
+      <div class="card-body"><p>Uses <code>update_or_create</code>. Always writes the latest data. This keeps live call data current throughout the day.</p></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="badge badge-info">historical records</span></div>
+      <div class="card-body"><p>Uses <code>get_or_create</code>. Never overwrites. Once a day's data is stored, it's permanent — safe for audits and reports.</p></div>
+    </div>
+  </div>
+
+  <p class="section-label">Why the API always ignores your date filter</p>
+  <div class="card">
+    <div class="card-body">
+      <p>The StringeeX API ignores <code>start_time</code> / <code>end_time</code> parameters entirely. It always returns records sorted newest-first. The code works around this by paginating until it hits records older than the requested start boundary, then stopping. This is why syncing a short window can still fetch many pages.</p>
+    </div>
+  </div>
+
+  <p class="section-label">Backfill flow — step by step</p>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Optionally flush:</strong> <code>sync_calls --flush</code> wipes all records. Do this before a clean backfill.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Run backfill:</strong> <code>--start YYYY-MM-DD --end YYYY-MM-DD</code>. Iterates day-by-day. Historical days use <code>get_or_create</code>; if today is in range, it uses <code>update_or_create</code>.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Start daemon:</strong> takes over from where the backfill left off, polling every 4 minutes.</div></div>
+
+  <p class="section-label">CAN_NOT_MAKE_CALL — why counts don't match the export</p>
+  <div class="card">
+    <div class="card-body">Records with <code>end_call_reason = 'CAN_NOT_MAKE_CALL'</code> are filtered out at ingest time — both from CSV import and the API sync. They never enter the DB. If your call counts don't match the raw StringeeX export, this is the first thing to check.</div>
+  </div>
+</div>
+
+<div id="team-lookup" class="panel">
+  <p class="section-label">How enrichment works</p>
+  <div class="card">
+    <div class="card-body">
+      <p>When a call comes in with <code>account_name = "irfan@bluewave.com"</code>, the code strips everything after <code>@</code> to get the prefix <code>"irfan"</code>. That prefix is looked up in an in-memory dict built from <code>Team_tradex.xlsx</code>.</p>
+      <p>This is why <code>irfan@bluewave.com</code> and <code>irfan@nexora.live</code> match the same record — the domain is irrelevant.</p>
+    </div>
+  </div>
+
+  <p class="section-label">Build order — Sheet2 beats Sheet1 silently</p>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Sheet1</strong> is loaded first. Keyed on the <code>Email</code> column (nexora.live addresses). Covers the full CRE list.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Sheet2 Stringee rows</strong> are loaded second and <em>overwrite</em> Sheet1 for any matching prefix. Keyed on <code>Dialer Name</code> (bluewave.com addresses). No error is raised — Sheet2 just wins.</div></div>
+
+  <div class="highlight">
+    <strong>Debugging agent TL/pool issues:</strong> if an agent appears in both sheets and their TL looks wrong, Sheet2 is authoritative. Check what prefix the API sends vs what's in Sheet2's "Dialer Name" column.
+  </div>
+
+  <p class="section-label">The two-step cache reload</p>
+  <div class="card">
+    <div class="card-body">
+      <p>After editing <code>Team_tradex.xlsx</code>, you must do both of these — doing only one leaves the other stale:</p>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><span class="badge badge-purple">step 1 — fix the DB</span></div>
+      <div class="card-body"><code>python manage.py reenrich_teams</code><br><br>Re-reads the xlsx and bulk-updates every <code>CallRecord</code> row in the DB with fresh TL/pool/name data.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="badge badge-purple">step 2 — fix memory</span></div>
+      <div class="card-body"><code>POST /api/reload-team/</code><br><br>Forces <code>reload_team_lookup()</code> in the running web process. Without this, the in-memory cache still holds the old data.</div>
+    </div>
+  </div>
+</div>
+
+<div id="gotchas" class="panel">
+  <p class="section-label">Things that look like bugs but aren't</p>
+
+  <div class="card">
+    <div class="card-title"><span class="badge badge-warn">talk_duration = 0</span></div>
+    <div class="card-body">This is not a data error. It means the call was never answered. <code>is_connected</code> is simply <code>talk_duration > 0</code>. The distinction matters for connect-rate calculations.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="badge badge-warn">timestamp confusion</span></div>
+    <div class="card-body">
+      <p><code>start_time_ms</code> in the DB is always raw UTC milliseconds (e.g. <code>1746700000000</code>). To read it:</p>
+      <p><code>datetime.fromtimestamp(1746700000000 / 1000)</code> → gives UTC datetime.</p>
+      <p>The dashboard and <code>views.py</code> convert to IST (UTC+5:30) for hour-bucketing. All date boundary logic uses IST, not UTC.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="badge badge-warn">many pages for a short window</span></div>
+    <div class="card-body">The API ignores date filters. Even a 2-hour sync may paginate through 10+ pages because the API returns all records newest-first and the code must scan until it passes the start boundary.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="badge badge-warn">.env changes require two restarts</span></div>
+    <div class="card-body">The web server (<code>gunicorn</code>) and the daemon (<code>sync_calls --daemon</code>) are separate processes. Both read <code>.env</code> once at startup. After any <code>.env</code> change, restart both.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="badge badge-danger">missing agent data</span></div>
+    <div class="card-body">If an agent's TL/pool shows blank on the dashboard, the most likely cause is a mismatch between the email prefix the API sends (e.g. <code>irfan</code> from <code>irfan@bluewave.com</code>) and what's in the xlsx. Check Sheet2 "Dialer Name" column for that exact prefix.</div>
+  </div>
+</div>
+
+<div id="env-ref" class="panel">
+  <p class="section-label">Database</p>
+  <div class="card">
+    <div class="kv"><span class="kv-key">DB name</span><span class="kv-val">cdr</span></div>
+    <div class="kv"><span class="kv-key">DB user</span><span class="kv-val">admin</span></div>
+    <div class="kv"><span class="kv-key">Host / port</span><span class="kv-val">localhost : 5432</span></div>
+    <div class="kv"><span class="kv-key">Main table</span><span class="kv-val">calls_callrecord</span></div>
+  </div>
+
+  <p class="section-label">StringeeX API</p>
+  <div class="card">
+    <div class="kv"><span class="kv-key">Portals</span><span class="kv-val">bluewave2, bluewave3</span></div>
+    <div class="kv"><span class="kv-key">Auth endpoint</span><span class="kv-val">POST /v1/account</span></div>
+    <div class="kv"><span class="kv-key">Data endpoint</span><span class="kv-val">GET /v1/call/history</span></div>
+    <div class="kv"><span class="kv-key">Page size</span><span class="kv-val">1000 records</span></div>
+    <div class="kv"><span class="kv-key">Sort order</span><span class="kv-val">start_time DESC (always)</span></div>
+  </div>
+
+  <p class="section-label">Team file</p>
+  <div class="card">
+    <div class="kv"><span class="kv-key">Default path</span><span class="kv-val">data/Team_tradex.xlsx</span></div>
+    <div class="kv"><span class="kv-key">Override via</span><span class="kv-val">TEAM_XLSX_PATH env var</span></div>
+    <div class="kv"><span class="kv-key">Sheet1 key column</span><span class="kv-val">Email (nexora.live)</span></div>
+    <div class="kv"><span class="kv-key">Sheet2 key column</span><span class="kv-val">Dialer Name (bluewave.com)</span></div>
+  </div>
+
+  <p class="section-label">Useful psql one-liners</p>
+  <div class="cmd-block">
+    <span class="cmd-comment">-- connect</span><br>
+    psql -U admin -d cdr<br><br>
+    <span class="cmd-comment">-- row count</span><br>
+    SELECT COUNT(*) FROM calls_callrecord;<br><br>
+    <span class="cmd-comment">-- read a timestamp</span><br>
+    SELECT to_timestamp(start_time_ms / 1000) FROM calls_callrecord LIMIT 5;<br><br>
+    <span class="cmd-comment">-- find blank enrichment</span><br>
+    SELECT account_name, tl FROM calls_callrecord WHERE tl IS NULL LIMIT 20;
+  </div>
+</div>
+
+<div id="commands" class="panel">
+  <p class="section-label">Sync commands</p>
+  <div class="cmd-block">
+    <span class="cmd-comment"># one-shot — last 2 hours from all portals</span><br>
+    python manage.py sync_calls<br><br>
+    <span class="cmd-comment"># live daemon — polls every 4 min, fetches 9 min each time</span><br>
+    python manage.py sync_calls --daemon --interval 4<br><br>
+    <span class="cmd-comment"># backfill a date range</span><br>
+    python manage.py sync_calls --start 2026-05-01 --end 2026-05-09<br><br>
+    <span class="cmd-comment"># flush all records (no sync)</span><br>
+    python manage.py sync_calls --flush<br><br>
+    <span class="cmd-comment"># flush then backfill</span><br>
+    python manage.py sync_calls --flush --start 2026-05-01 --end 2026-05-09<br><br>
+    <span class="cmd-comment"># import from CSV export</span><br>
+    python manage.py sync_calls --csv /path/to/report.csv
+  </div>
+
+  <p class="section-label">After editing Team_tradex.xlsx — both are required</p>
+  <div class="cmd-block">
+    <span class="cmd-comment"># 1. fix the DB (rewrites all CallRecord rows)</span><br>
+    python manage.py reenrich_teams<br><br>
+    <span class="cmd-comment"># 2. fix the in-memory cache in the web process</span><br>
+    curl -X POST http://localhost:8000/api/reload-team/
+  </div>
+
+  <p class="section-label">After changing .env</p>
+  <div class="cmd-block">
+    <span class="cmd-comment"># restart both processes — they each read .env once at startup</span><br>
+    sudo systemctl restart stringeex-web<br>
+    sudo systemctl restart stringeex-sync
+  </div>
+
+  <p class="section-label">Generate a new access token</p>
+  <div class="cmd-block">
+    python -c "import secrets; print(secrets.token_urlsafe(24))"
+  </div>
+
+  <p class="section-label">Quick timestamp decode</p>
+  <div class="cmd-block">
+    <span class="cmd-comment"># paste a raw ms timestamp from psql</span><br>
+    python3 -c "from datetime import datetime; print(datetime.fromtimestamp(1746700000000/1000))"
+  </div>
+</div>
+
+<script>
+function show(id){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
