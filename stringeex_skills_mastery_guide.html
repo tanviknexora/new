@@ -1,0 +1,402 @@
+
+<h2 class="sr-only">StringeeX — Skills and knowledge areas to master this project</h2>
+<style>
+  .guide { font-family: var(--font-sans); padding: 0.5rem 0 2rem; }
+  .sec { margin-bottom: 2rem; }
+  .sec-hdr { display:flex; align-items:center; gap:10px; margin-bottom:.75rem; border-bottom:.5px solid var(--color-border-tertiary); padding-bottom:.5rem; }
+  .sec-hdr i { font-size:18px; color:var(--color-text-secondary); }
+  .sec-title { font-size:13px; font-weight:500; color:var(--color-text-secondary); letter-spacing:.06em; text-transform:uppercase; margin:0; }
+  .card { background:var(--color-background-primary); border:.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:.9rem 1.1rem; margin-bottom:8px; }
+  .card:hover { border-color:var(--color-border-secondary); }
+  .skill-hdr { display:flex; align-items:flex-start; gap:10px; margin-bottom:6px; }
+  .tag { font-size:11px; font-weight:500; padding:2px 8px; border-radius:var(--border-radius-md); white-space:nowrap; flex-shrink:0; margin-top:1px; }
+  .t-excel { background:#E1F5EE; color:#085041; }
+  .t-api { background:#EEEDFE; color:#3C3489; }
+  .t-py { background:#E6F1FB; color:#0C447C; }
+  .t-infra { background:#F1EFE8; color:#444441; }
+  .t-data { background:#FAEEDA; color:#633806; }
+  .t-auth { background:#FAECE7; color:#712B13; }
+  .skill-name { font-size:14px; font-weight:500; color:var(--color-text-primary); margin:0; }
+  .skill-why { font-size:13px; color:var(--color-text-secondary); margin: 4px 0 8px; }
+  .know-list { margin:0; padding:0; list-style:none; }
+  .know-list li { font-size:12.5px; color:var(--color-text-secondary); padding:3px 0; display:flex; gap:6px; align-items:flex-start; }
+  .know-list li::before { content:"·"; font-weight:700; flex-shrink:0; color:var(--color-text-secondary); }
+  .know-list li strong { color:var(--color-text-primary); font-weight:500; }
+  .resource { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--color-text-secondary); background:var(--color-background-secondary); border:.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-md); padding:3px 10px; margin:6px 4px 0 0; text-decoration:none; cursor:pointer; }
+  .resource:hover { border-color:var(--color-border-secondary); }
+  .resource i { font-size:13px; }
+  code.il { font-family:var(--font-mono); font-size:11.5px; background:var(--color-background-secondary); border:.5px solid var(--color-border-tertiary); border-radius:4px; padding:1px 5px; color:var(--color-text-primary); }
+  .divider { height:.5px; background:var(--color-border-tertiary); margin: 6px 0 10px; }
+  .level-pill { font-size:10px; padding:1px 7px; border-radius:20px; border:.5px solid var(--color-border-tertiary); color:var(--color-text-secondary); margin-left:auto; flex-shrink:0; white-space:nowrap; }
+</style>
+
+<div class="guide">
+
+  <!-- EXCEL / TEAM DATA -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-table" aria-hidden="true"></i>
+      <p class="sec-title">1 — Team data management (Excel)</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-excel">Excel</span>
+        <p class="skill-name">Understanding Team_tradex.xlsx structure</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <p class="skill-why">Every agent's name, TL, pool, and vertical comes from this file. If it's wrong, everything downstream is wrong — the dashboard, the API, the DB.</p>
+      <ul class="know-list">
+        <li><strong>Sheet1</strong> = full CRE list keyed on <code class="il">Email</code> (nexora.live addresses). Columns: Email, Employee Code, Full Name, Pool, TL, Vertical.</li>
+        <li><strong>Sheet2</strong> = Stringee-dialer agents. Columns: Dialer, Dialer Name, Email, Employee code, Full Name, Pool, TL, Vertical. Only rows where <code class="il">Dialer</code> = "stringee" (or "strigee") are loaded.</li>
+        <li>Sheet2 <strong>overrides</strong> Sheet1 for the same agent prefix. If a person is in both, Sheet2 wins.</li>
+        <li>Matching is by <strong>email prefix only</strong> — everything before the @. So "irfan@bluewave.com" and "irfan@nexora.live" both match the key "irfan".</li>
+        <li>If an agent's pool/TL shows "—" in the dashboard, their row is missing from Sheet2 (or the Dialer column isn't "stringee").</li>
+        <li>After editing the file: run <code class="il">python manage.py reenrich_teams</code> then POST <code class="il">/api/reload-team/</code>.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-excel">Excel</span>
+        <p class="skill-name">Adding a new agent correctly</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <ul class="know-list">
+        <li>Add them to <strong>Sheet2</strong> with <code class="il">Dialer</code> = "stringee" and <code class="il">Dialer Name</code> = their bluewave.com API email.</li>
+        <li>Their nexora.live email goes in the <code class="il">Email</code> column (used as fallback reference only).</li>
+        <li>If the prefix already exists in Sheet1, Sheet2 values will override — that's intentional.</li>
+        <li>If a field in Sheet2 is blank, the code falls back to Sheet1's value for that field.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- STRINGEEX API -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-cloud" aria-hidden="true"></i>
+      <p class="sec-title">2 — StringeeX API behaviour</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-api">API</span>
+        <p class="skill-name">How the API actually works (critical quirk)</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <p class="skill-why">The StringeeX API ignores its own date filter parameters. Knowing this explains why sync_calls works the way it does.</p>
+      <ul class="know-list">
+        <li>The API <strong>always returns latest records DESC</strong> regardless of <code class="il">start_time</code> / <code class="il">end_time</code> params sent.</li>
+        <li>The code works around this by <strong>paginating until records go older than start boundary</strong>, then stops — collecting only records within the desired window.</li>
+        <li><code class="il">page_size=1000</code> per page. Large backfills = many API pages = slow. That's expected, not a bug.</li>
+        <li>Multiple portals (<code class="il">bluewave2</code>, <code class="il">bluewave3</code>) are fetched separately and merged. Cross-portal duplicates are deduplicated by call <code class="il">id</code>.</li>
+        <li>Auth token is fetched fresh each sync run via <code class="il">POST /v1/account</code> — it's not cached between runs.</li>
+        <li>If a portal is unreachable, its error is logged but other portals still run — partial sync rather than full failure.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-api">API</span>
+        <p class="skill-name">What the raw API fields mean before mapping</p>
+        <span class="level-pill">useful</span>
+      </div>
+      <ul class="know-list">
+        <li><code class="il">direction</code> from API is an <strong>integer</strong>: 0 = outbound, 1 = inbound. The code maps this at ingest — what's in the DB is already the string.</li>
+        <li><code class="il">start_time</code> from API = Unix <strong>milliseconds</strong> UTC. Stored as-is in <code class="il">start_time_ms</code>.</li>
+        <li><code class="il">answer_duration</code> from API is a <strong>float in seconds</strong>, can be null. Stored in <code class="il">answer_duration</code> FloatField.</li>
+        <li><code class="il">end_call_reason = 'CAN_NOT_MAKE_CALL'</code> records are <strong>skipped entirely</strong> at ingest — they never reach the DB.</li>
+        <li>The field <code class="il">account_name</code> in the API was previously called <code class="il">account</code> — the current code uses the new name.</li>
+        <li><code class="il">_portal</code> is a field the code adds itself (not from API) to track which portal a record came from.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SYNC LOGIC -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-refresh" aria-hidden="true"></i>
+      <p class="sec-title">3 — Sync and upsert logic</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-py">Python</span>
+        <p class="skill-name">Smart upsert — today vs history behaviour</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <p class="skill-why">Understanding this prevents confusion when re-syncing and wondering why some records update and others don't.</p>
+      <ul class="know-list">
+        <li><strong>Today's records</strong> use <code class="il">update_or_create</code> — if the call already exists in DB it gets refreshed. Live data stays current.</li>
+        <li><strong>Historical records</strong> (any day before today in IST) use <code class="il">get_or_create</code> — existing records are <em>never overwritten</em>.</li>
+        <li>"Today" is determined in <strong>IST/Asia:Kolkata time</strong> (UTC+5:30), same as Dubai. Midnight IST = when records switch from "today" to "history".</li>
+        <li>The <code class="il">--flush</code> flag wipes the entire <code class="il">calls_callrecord</code> table. Always follow with a backfill.</li>
+        <li>Running <code class="il">sync_calls --csv</code> uses the same upsert logic — today's CSV rows update existing records.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-py">Python</span>
+        <p class="skill-name">Daemon interval and overlap strategy</p>
+        <span class="level-pill">useful</span>
+      </div>
+      <ul class="know-list">
+        <li>The daemon runs every N minutes and fetches the <strong>last 9 minutes</strong> (not just N) — the overlap prevents gaps if a sync runs slightly late.</li>
+        <li>Since today's records use <code class="il">update_or_create</code>, overlapping fetches update records rather than duplicating them.</li>
+        <li>Recommended interval is 4 minutes (set in <code class="il">.env</code> as <code class="il">POLL_INTERVAL_MINUTES=4</code>).</li>
+        <li>If the daemon crashes and restarts, it fetches the last 9 minutes — so short outages &lt;9 min self-heal automatically.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- AUTH & ACCESS -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-lock" aria-hidden="true"></i>
+      <p class="sec-title">4 — Access control and token system</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-auth">Auth</span>
+        <p class="skill-name">How the dashboard token gate works</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <p class="skill-why">You need to understand this to share access safely and to revoke it when needed.</p>
+      <ul class="know-list">
+        <li>Set <code class="il">ACCESS_TOKEN</code> in <code class="il">.env</code>. Share this URL once: <code class="il">https://yourdomain.com/?token=&lt;value&gt;</code>.</li>
+        <li>On first visit the token is validated and stored in the <strong>user's browser session</strong>. The URL param disappears — future visits to the root URL work without the token in the URL.</li>
+        <li>Sessions last <strong>2 weeks</strong> (<code class="il">SESSION_COOKIE_AGE</code> in settings.py).</li>
+        <li>To <strong>revoke access</strong>: change <code class="il">ACCESS_TOKEN</code> in <code class="il">.env</code> and restart the server. All sessions invalidate immediately.</li>
+        <li>Leave <code class="il">ACCESS_TOKEN</code> blank in <code class="il">.env</code> to disable protection entirely (dev only).</li>
+        <li>The middleware is in <code class="il">calls/auth_middleware.py</code> — the API endpoints are also protected by it, not just the dashboard.</li>
+        <li>Django admin (<code class="il">/admin/</code>) uses its own Django user auth — separate from the token system.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- DJANGO ADMIN -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
+      <p class="sec-title">5 — Django admin panel</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-py">Django</span>
+        <p class="skill-name">Using /admin/ as a visual database browser</p>
+        <span class="level-pill">useful</span>
+      </div>
+      <p class="skill-why">The fastest way to inspect, filter, and manually edit records without writing SQL or Python.</p>
+      <ul class="know-list">
+        <li>Go to <code class="il">http://localhost:8000/admin/</code> — log in with the superuser you created.</li>
+        <li>Shows all <code class="il">CallRecord</code> rows with filtering, search, and pagination.</li>
+        <li>You can filter by direction, date, and any field exposed in <code class="il">calls/admin.py</code>.</li>
+        <li>You can manually edit or delete individual records — useful for fixing bad test data.</li>
+        <li>The <code class="il">list_display</code>, <code class="il">list_filter</code>, and <code class="il">search_fields</code> in <code class="il">admin.py</code> control what's visible and searchable.</li>
+        <li>If you extend the model (new field), add it to <code class="il">admin.py</code> so it appears in the panel.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ENV AND CONFIG -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-adjustments" aria-hidden="true"></i>
+      <p class="sec-title">6 — .env configuration mastery</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-infra">Config</span>
+        <p class="skill-name">Every .env variable and what it controls</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <ul class="know-list">
+        <li><strong>DJANGO_SECRET_KEY</strong> — never share this. If leaked, rotate it (all sessions invalidate).</li>
+        <li><strong>DEBUG=False</strong> — always False in production. True makes Django show full tracebacks in browser (a security risk).</li>
+        <li><strong>ALLOWED_HOSTS</strong> — comma-separated. Must include your server IP/domain or Django will reject requests with 400 Bad Request.</li>
+        <li><strong>DB_NAME / DB_USER / DB_PASSWORD / DB_HOST / DB_PORT</strong> — PostgreSQL connection. <code class="il">DB_NAME=cdr</code>, <code class="il">DB_USER=admin</code> in this project.</li>
+        <li><strong>STRINGEEX_EMAIL / STRINGEEX_PASSWORD</strong> — StringeeX portal login. Used to fetch an auth token on every sync run.</li>
+        <li><strong>STRINGEEX_PORTALS</strong> — comma-separated portal subdomains (e.g. <code class="il">bluewave2,bluewave3</code>). Takes priority over <code class="il">STRINGEEX_PORTAL</code>.</li>
+        <li><strong>STRINGEEX_PORTAL</strong> — single-portal fallback (only used if PORTALS is empty).</li>
+        <li><strong>POLL_INTERVAL_MINUTES</strong> — daemon polling interval in minutes. Default 4.</li>
+        <li><strong>ACCESS_TOKEN</strong> — dashboard access token. Blank = no protection.</li>
+        <li>After editing <code class="il">.env</code> you must <strong>restart the server and daemon</strong> — the file is read at startup only.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- TIMEZONE -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-clock" aria-hidden="true"></i>
+      <p class="sec-title">7 — Timezone handling</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-data">Data</span>
+        <p class="skill-name">How time zones flow through the whole stack</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <p class="skill-why">Time zone bugs are the #1 cause of "why does today show 0 calls?" and "why are hours off by 4?"</p>
+      <ul class="know-list">
+        <li><strong>DB stores raw UTC milliseconds</strong> — <code class="il">start_time_ms</code> is always UTC. No conversion happens at write time.</li>
+        <li><strong>All date boundaries use IST (Asia/Kolkata, UTC+5:30)</strong> — which is the same as Dubai time for business purposes. Midnight IST = midnight Dubai.</li>
+        <li>When you query <code class="il">/api/stats/?date=2026-05-13</code>, the backend converts that date to IST midnight → IST 23:59:59 → UTC ms, then filters.</li>
+        <li><strong>Hourly breakdown hours are IST local hours</strong> — hour 9 means 9am Dubai. The <code class="il">_ms_to_local_hour()</code> function does this conversion.</li>
+        <li>In PostgreSQL, convert ms to readable time with: <code class="il">to_timestamp(start_time_ms/1000) AT TIME ZONE 'Asia/Dubai'</code>.</li>
+        <li><code class="il">TIME_ZONE = 'Asia/Kolkata'</code> in settings.py — this affects Django's <code class="il">auto_now_add</code> fields like <code class="il">fetched_at</code>.</li>
+        <li>If you ever change the timezone in settings.py, existing ms timestamps are unaffected (they're UTC) but display logic and date filters will shift.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- POSTGRES SKILLS -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-database" aria-hidden="true"></i>
+      <p class="sec-title">8 — PostgreSQL skills for this project</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-infra">Postgres</span>
+        <p class="skill-name">psql meta-commands worth knowing</p>
+        <span class="level-pill">useful</span>
+      </div>
+      <ul class="know-list">
+        <li><code class="il">\dt</code> — list all tables in the database</li>
+        <li><code class="il">\d calls_callrecord</code> — describe the table (columns, types, constraints)</li>
+        <li><code class="il">\di calls_callrecord</code> — list indexes on the table</li>
+        <li><code class="il">\x</code> — toggle expanded output mode (one column per line — great for wide rows)</li>
+        <li><code class="il">\timing</code> — show query execution time</li>
+        <li><code class="il">\q</code> — quit psql</li>
+        <li><code class="il">\l</code> — list all databases on the server</li>
+        <li><code class="il">\c cdr</code> — connect/switch to the cdr database</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-infra">Postgres</span>
+        <p class="skill-name">Performance and index awareness</p>
+        <span class="level-pill">advanced</span>
+      </div>
+      <ul class="know-list">
+        <li>The table's primary key is <code class="il">id</code> (varchar). Django auto-indexes it.</li>
+        <li>Most queries filter on <code class="il">start_time_ms</code> — if the table grows large, add an index: <code class="il">CREATE INDEX ON calls_callrecord (start_time_ms DESC);</code></li>
+        <li>Queries filtering by <code class="il">account_name</code> or <code class="il">tl</code> also benefit from indexes as data grows.</li>
+        <li>Check query plans with: <code class="il">EXPLAIN ANALYZE SELECT ... FROM calls_callrecord WHERE ...;</code></li>
+        <li>Table size check: <code class="il">SELECT pg_size_pretty(pg_total_relation_size('calls_callrecord'));</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- EXTENDING THE PROJECT -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-code" aria-hidden="true"></i>
+      <p class="sec-title">9 — Extending and modifying the project</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-py">Django</span>
+        <p class="skill-name">Adding a new field to the model</p>
+        <span class="level-pill">advanced</span>
+      </div>
+      <ul class="know-list">
+        <li>Edit <code class="il">calls/models.py</code> — add the field definition.</li>
+        <li>Run <code class="il">python manage.py makemigrations</code> — generates the migration file.</li>
+        <li>Run <code class="il">python manage.py migrate</code> — applies it to the DB.</li>
+        <li>Update <code class="il">sync_calls.py</code> to populate the field during ingest.</li>
+        <li>Update <code class="il">calls/admin.py</code> to show it in the admin panel.</li>
+        <li>Update the relevant view in <code class="il">views.py</code> to include it in the API response.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-py">Django</span>
+        <p class="skill-name">Adding a new API endpoint</p>
+        <span class="level-pill">advanced</span>
+      </div>
+      <ul class="know-list">
+        <li>Add a view function to <code class="il">calls/views.py</code> — decorate with <code class="il">@require_GET</code> and return a <code class="il">JsonResponse</code>.</li>
+        <li>Add a <code class="il">path()</code> entry to <code class="il">calls/urls.py</code>.</li>
+        <li>Use <code class="il">_day_ms_range(date_str)</code> for date filtering — it handles the IST boundary conversion for you.</li>
+        <li>The auth middleware automatically protects all routes — no extra code needed.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-api">API</span>
+        <p class="skill-name">Adding a new portal</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <ul class="know-list">
+        <li>In <code class="il">.env</code>, add the portal subdomain to <code class="il">STRINGEEX_PORTALS</code>: e.g. <code class="il">STRINGEEX_PORTALS=bluewave2,bluewave3,bluewave4</code></li>
+        <li>Restart the server and daemon — that's all. The code loops over all portals automatically.</li>
+        <li>Cross-portal duplicate calls are deduplicated by <code class="il">id</code> automatically.</li>
+        <li>If one portal fails auth, the rest still sync — check logs for per-portal errors.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- OPERATIONS RUNBOOK -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <i class="ti ti-checklist" aria-hidden="true"></i>
+      <p class="sec-title">10 — Daily operations runbook</p>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-infra">Ops</span>
+        <p class="skill-name">Morning health check (30 seconds)</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <ul class="know-list">
+        <li>Check daemon is running: <code class="il">sudo systemctl status stringeex-sync</code> — should say "active (running)".</li>
+        <li>Check last sync time: <code class="il">curl -s http://localhost:8000/api/last-sync/ | python -m json.tool</code></li>
+        <li>Check today's call count: <code class="il">curl -s "http://localhost:8000/api/stats/?date=$(date +%Y-%m-%d)" | python -m json.tool</code></li>
+        <li>If daemon is down: <code class="il">sudo systemctl restart stringeex-sync</code> then check <code class="il">journalctl -u stringeex-sync -n 50</code> for the error.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-infra">Ops</span>
+        <p class="skill-name">After updating Team_tradex.xlsx (workflow)</p>
+        <span class="level-pill">essential</span>
+      </div>
+      <ul class="know-list">
+        <li>Replace <code class="il">data/Team_tradex.xlsx</code> on the server.</li>
+        <li>Re-enrich all existing DB records: <code class="il">python manage.py reenrich_teams</code></li>
+        <li>Hot-reload the in-memory lookup without restart: <code class="il">curl -X POST http://localhost:8000/api/reload-team/</code></li>
+        <li>Verify in dashboard that affected agents now show correct pool/TL.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="skill-hdr">
+        <span class="tag t-infra">Ops</span>
+        <p class="skill-name">Monthly data reset + backfill workflow</p>
+        <span class="level-pill">useful</span>
+      </div>
+      <ul class="know-list">
+        <li>Stop the daemon: <code class="il">sudo systemctl stop stringeex-sync</code></li>
+        <li>Flush all data: <code class="il">python manage.py sync_calls --flush</code></li>
+        <li>Backfill from desired start date: <code class="il">python manage.py sync_calls --start 2026-05-01 --end 2026-05-31</code></li>
+        <li>Restart daemon: <code class="il">sudo systemctl start stringeex-sync</code></li>
+        <li>Verify record count in DB matches expectations.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
